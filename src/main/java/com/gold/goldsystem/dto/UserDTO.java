@@ -1,16 +1,15 @@
-package com.gold.goldsystem.entity;
+package com.gold.goldsystem.dto;
 
-import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.Accessors;
 
-@TableName(value ="page")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Accessors(chain = true)
-public class PageEntity {
-    private Integer userId;
+public class UserDTO {
+    private String id;
+    private String remark;
 }

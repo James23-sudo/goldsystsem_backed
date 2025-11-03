@@ -6,11 +6,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.Accessors;
 
-@TableName(value ="page")
+@TableName(value ="user")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Accessors(chain = true)
-public class PageEntity {
-    private Integer userId;
+public class UserEntity {
+    private String id;
+    private String remark;
 }
