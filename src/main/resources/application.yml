@@ -1,0 +1,67 @@
+# server??
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+# ????
+spring:
+  # mysql????
+  datasource:
+    url: jdbc:mysql://localhost/billiongold
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  #??????
+#  servlet:
+#    multipart:
+#      max-file-size: 10MB
+#      max-request-size: 100MB
+
+# mybatis-plus???
+mybatis-plus:
+  configuration:
+    auto-mapping-behavior: full
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+
+#spring??????
+logging:
+  level:
+    org.springframework.jdbc.support.JdbcTransactionManager: debug
+
+# springdoc-openapi????
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  group-configs:
+    - group: 'default'
+      paths-to-match: '/**'
+      packages-to-scan: com.springboot.uav.controller
+# knife4j???????????????
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+    enableSwaggerModels: true
+    enableDocumentManage: true
+    enable-open-api: true
+
+
+
+
+
+
+
+
+
+
+
