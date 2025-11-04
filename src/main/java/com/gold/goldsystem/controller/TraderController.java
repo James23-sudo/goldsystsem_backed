@@ -28,6 +28,16 @@ public class TraderController {
     }
 
     /**
+     * 更新交易订单（用于二次填数据：开仓价、平仓价、收盘价、平仓时间等可选字段）
+     * 根据订单号更新；服务层将计算隔夜费与盈亏，并在可选字段齐全时置 isOk=1
+     */
+    @PostMapping("/updateTrader")
+    public Result updateTrader(@RequestBody TraderDTO traderDTO) {
+        log.info("收到更新交易订单请求: {}", traderDTO);
+        return traderService.updateTrader(traderDTO);
+    }
+
+    /**
      * 查询接口：status=1 固定；isOk=0/1 由前端传参控制
      * 示例：/api/trader/list?isOk=0 或 /api/trader/list?isOk=1&userId=123456
      */

@@ -162,34 +162,75 @@ public class TraderServiceImpl implements TraderService {
 
     @Override
     public Result updateTrader(TraderDTO traderDTO) {
-        // Check if trader exists
+        // 基本校验：必须提供订单号用于更新
+        if (traderDTO == null || traderDTO.getOrderId() == null || traderDTO.getOrderId().isBlank()) {
+            return Result.error(400, "更新必须提供订单号orderId");
+        }
+
+        // 查询现有订单
         TraderEntity existingTrader = traderMapper.selectById(traderDTO.getOrderId());
         if (existingTrader == null) {
             return Result.error(404, "交易订单不存在");
         }
-        
-        // Convert DTO to Entity
-        TraderEntity traderEntity = new TraderEntity()
-                .setId(traderDTO.getId())
-                .setOrderId(traderDTO.getOrderId())
-                .setOpeningTime(traderDTO.getOpeningTime())
-                .setClosingTime(traderDTO.getClosingTime())
-                .setDirection(traderDTO.getDirection())
-                .setVolume(traderDTO.getVolume())
-                .setVarieties(traderDTO.getVarieties())
-                .setOpeningPrice(traderDTO.getOpeningPrice())
-                .setClosingPrice(traderDTO.getClosingPrice())
-                .setOvernightPrice(traderDTO.getOvernightPrice())
-                .setInoutPrice(traderDTO.getInoutPrice())
-                .setIsOk(traderDTO.getIsOk())
-                .setStatus(traderDTO.getStatus())
-                .setOverPrice(traderDTO.getOverPrice())
-                .setEntryExit(traderDTO.getEntryExit())
-                .setOvernightProportion(traderDTO.getOvernightProportion());
-        
-        // Update in database
-        int rows = traderMapper.updateById(traderEntity);
-        
+
+        // 选择性更新：仅对非空字段进行赋值，避免把未传字段覆盖为null
+        if (traderDTO.getId() != null) existingTrader.setId(traderDTO.getId());
+        if (traderDTO.getOpeningTime() != null) existingTrader.setOpeningTime(traderDTO.getOpeningTime());
+        if (traderDTO.getClosingTime() != null) existingTrader.setClosingTime(traderDTO.getClosingTime());
+        if (traderDTO.getDirection() != null) existingTrader.setDirection(traderDTO.getDirection());
+        if (traderDTO.getVolume() != null) existingTrader.setVolume(traderDTO.getVolume());
+        if (traderDTO.getVarieties() != null) existingTrader.setVarieties(traderDTO.getVarieties());
+        if (traderDTO.getOpeningPrice() != null) existingTrader.setOpeningPrice(traderDTO.getOpeningPrice());
+        if (traderDTO.getClosingPrice() != null) existingTrader.setClosingPrice(traderDTO.getClosingPrice());
+        if (traderDTO.getOverPrice() != null) existingTrader.setOverPrice(traderDTO.getOverPrice());
+        if (traderDTO.getEntryExit() != null) existingTrader.setEntryExit(traderDTO.getEntryExit());
+        if (traderDTO.getOvernightProportion() != null) existingTrader.setOvernightProportion(traderDTO.getOvernightProportion());
+        if (traderDTO.getStatus() != null) existingTrader.setStatus(traderDTO.getStatus());
+
+        // 派生字段计算（中文注释）：
+        // 隔夜费（overnightPrice）= 开仓价 × (成交量/100盎司) × 隔夜费比例 / 360
+        // 盈亏（inoutPrice）= (开仓价 - 平仓价) × 成交量
+        try {
+            java.math.BigDecimal openingPrice = existingTrader.getOpeningPrice();
+            java.math.BigDecimal closingPrice = existingTrader.getClosingPrice();
+            java.math.BigDecimal volume = existingTrader.getVolume(); // 盎司单位
+            java.math.BigDecimal overnightProportion = existingTrader.getOvernightProportion();
+
+            if (openingPrice != null && volume != null && overnightProportion != null) {
+                java.math.BigDecimal lots = volume.divide(new java.math.BigDecimal("100"), 8, java.math.RoundingMode.HALF_UP);
+                java.math.BigDecimal overnight = openingPrice
+                        .multiply(lots)
+                        .multiply(overnightProportion)
+                        .divide(new java.math.BigDecimal("360"), 8, java.math.RoundingMode.HALF_UP);
+                // 保留2位小数
+                overnight = overnight.setScale(2, java.math.RoundingMode.HALF_UP);
+                existingTrader.setOvernightPrice(overnight);
+            }
+
+            if (openingPrice != null && closingPrice != null && volume != null) {
+                java.math.BigDecimal pnl = openingPrice
+                        .subtract(closingPrice)
+                        .multiply(volume)
+                        .setScale(2, java.math.RoundingMode.HALF_UP);
+                existingTrader.setInoutPrice(pnl);
+            }
+        } catch (Exception e) {
+            log.warn("更新派生字段计算异常: {}", e.getMessage());
+        }
+
+        // 当可选字段齐全（开仓价、平仓价、收盘价、平仓时间）时，自动置 isOk=1；否则保留原状态或按传参覆盖
+        boolean optionalComplete = existingTrader.getOpeningPrice() != null
+                && existingTrader.getClosingPrice() != null
+                && existingTrader.getOverPrice() != null
+                && existingTrader.getClosingTime() != null;
+        if (optionalComplete) {
+            existingTrader.setIsOk("1");
+        } else if (traderDTO.getIsOk() != null) {
+            // 如果显式传入isOk，则按传参设置
+            existingTrader.setIsOk(traderDTO.getIsOk());
+        }
+
+        int rows = traderMapper.updateById(existingTrader);
         if (rows > 0) {
             log.info("Trader updated successfully: {}", traderDTO.getOrderId());
             return Result.success(200, "交易订单更新成功");
