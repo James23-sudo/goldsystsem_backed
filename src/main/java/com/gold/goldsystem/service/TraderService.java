@@ -14,13 +14,6 @@ public interface TraderService {
 
 
     /**
-     * 根据用户ID查询交易订单列表
-     * @param userId 用户ID
-     * @return 查询结果
-     */
-    Result getTradersByUserId(String userId);
-
-    /**
      * 更新交易订单
      * @param traderDTO 交易订单信息
      * @return 更新结果
@@ -33,8 +26,6 @@ public interface TraderService {
      * @return 删除结果
      */
     Result deleteTrader(String orderId);
-
-    // 统一查询方法：使用 queryTraders(isOk, userId)
 
     /**
      * 通用查询交易（status=1），前端通过 isOk=0/1 进行筛选；可选按用户过滤

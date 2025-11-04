@@ -153,14 +153,6 @@ public class TraderServiceImpl implements TraderService {
     }
 
     @Override
-    public Result getTradersByUserId(String userId) {
-        LambdaQueryWrapper<TraderEntity> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(TraderEntity::getId, userId);
-        List<TraderEntity> traders = traderMapper.selectList(queryWrapper);
-        return Result.success(traders);
-    }
-
-    @Override
     public Result updateTrader(TraderDTO traderDTO) {
         // 基本校验：必须提供订单号用于更新
         if (traderDTO == null || traderDTO.getOrderId() == null || traderDTO.getOrderId().isBlank()) {
