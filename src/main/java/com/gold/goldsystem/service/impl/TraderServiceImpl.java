@@ -8,12 +8,14 @@ import com.gold.goldsystem.entity.UserEntity;
 import com.gold.goldsystem.mapper.TraderMapper;
 import com.gold.goldsystem.mapper.UserMapper;
 import com.gold.goldsystem.service.TraderService;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 @Slf4j
@@ -103,7 +105,7 @@ public class TraderServiceImpl implements TraderService {
      * 通用查询：status=1；isOk=0/1 由前端传参控制
      */
     @Override
-    public Result queryTraders(String isOk, String userId) {
+    public Result queryTraders(String isOk, String userId, Integer page, Integer size) {
         if (isOk == null || isOk.isBlank()) {
             return Result.error(400, "参数isOk为必填，取值0或1");
         }
@@ -127,9 +129,26 @@ public class TraderServiceImpl implements TraderService {
                 TraderEntity::getClosingTime,
                 TraderEntity::getClosingPrice,
                 TraderEntity::getOvernightPrice,
-                TraderEntity::getInoutPrice
+                TraderEntity::getInoutPrice,
+                TraderEntity::getOverPrice,
+                TraderEntity::getEntryExit
         );
         qw.orderByDesc(TraderEntity::getOpeningTime);
+        // 分页逻辑：如果提供了 size（>0），则启用分页；未提供 page 时默认 page=1
+        if (size != null && size > 0) {
+            long currentPage = (page == null || page <= 0) ? 1L : page.longValue();
+            Page<TraderEntity> p = new Page<>(currentPage, size);
+            Page<TraderEntity> resultPage = traderMapper.selectPage(p, qw);
+            return Result.success(
+                    Map.of(
+                            "records", resultPage.getRecords(),
+                            "total", resultPage.getTotal(),
+                            "pages", resultPage.getPages(),
+                            "current", resultPage.getCurrent(),
+                            "size", resultPage.getSize()
+                    )
+            );
+        }
         return Result.success(traderMapper.selectList(qw));
     }
 
