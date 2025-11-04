@@ -52,9 +52,6 @@ public class TraderServiceImpl implements TraderService {
         if (traderDTO.getVolume() == null) {
             return Result.error(400, "成交量为必填(盎司单位)");
         }
-        if (traderDTO.getEntryExit() == null) {
-            return Result.error(400, "客户出入金为必填");
-        }
         if (traderDTO.getOvernightProportion() == null) {
             return Result.error(400, "隔夜费比例为必填");
         }
