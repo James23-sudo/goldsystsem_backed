@@ -70,7 +70,7 @@ public class TraderServiceImpl implements TraderService {
             return Result.error(400, "用户不存在!");
         }
         
-        // Convert DTO to Entity
+        // Convert DTO to Entity（先赋原始字段）
         TraderEntity traderEntity = new TraderEntity()
                 .setId(traderDTO.getId())
                 .setOrderId(traderDTO.getOrderId())
@@ -81,13 +81,57 @@ public class TraderServiceImpl implements TraderService {
                 .setVarieties(traderDTO.getVarieties())
                 .setOpeningPrice(traderDTO.getOpeningPrice())
                 .setClosingPrice(traderDTO.getClosingPrice())
-                .setOvernightPrice(traderDTO.getOvernightPrice())
-                .setInoutPrice(traderDTO.getInoutPrice())
-                .setIsOk(traderDTO.getIsOk())
-                .setStatus(traderDTO.getStatus())
                 .setOverPrice(traderDTO.getOverPrice())
                 .setEntryExit(traderDTO.getEntryExit())
-                .setOvernightProportion(traderDTO.getOvernightProportion());
+                .setOvernightProportion(traderDTO.getOvernightProportion())
+                .setStatus(traderDTO.getStatus())
+                .setIsOk(traderDTO.getIsOk());
+
+        // 自动计算派生字段，与更新逻辑一致
+        try {
+            BigDecimal openingPrice = traderEntity.getOpeningPrice();
+            BigDecimal closingPrice = traderEntity.getClosingPrice();
+            BigDecimal volume = traderEntity.getVolume(); // 盎司
+            BigDecimal overnightProportion = traderEntity.getOvernightProportion();
+
+            // 隔夜费：开仓价 × (成交量/100盎司) × 隔夜费比例 ÷ 360
+            if (openingPrice != null && volume != null && overnightProportion != null) {
+                BigDecimal lots = volume.divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP);
+                BigDecimal overnight = openingPrice
+                        .multiply(lots)
+                        .multiply(overnightProportion)
+                        .divide(new BigDecimal("360"), 8, RoundingMode.HALF_UP)
+                        .setScale(2, RoundingMode.HALF_UP);
+                traderEntity.setOvernightPrice(overnight);
+            }
+
+            // 盈亏：依据方向 buy/sell
+            if (openingPrice != null && closingPrice != null && volume != null) {
+                String direction = traderEntity.getDirection();
+                BigDecimal pnl = null;
+                if (direction != null) {
+                    if ("sell".equalsIgnoreCase(direction)) {
+                        pnl = openingPrice.subtract(closingPrice).multiply(volume);
+                    } else if ("buy".equalsIgnoreCase(direction)) {
+                        pnl = closingPrice.subtract(openingPrice).multiply(volume);
+                    }
+                }
+                if (pnl != null) {
+                    traderEntity.setInoutPrice(pnl.setScale(2, RoundingMode.HALF_UP));
+                }
+            }
+        } catch (Exception e) {
+            log.warn("新增订单派生字段计算异常: {}", e.getMessage());
+        }
+
+        // 可选字段齐全（开仓价、平仓价、收盘价、平仓时间）则自动置 isOk=1
+        boolean optionalComplete = traderEntity.getOpeningPrice() != null
+                && traderEntity.getClosingPrice() != null
+                && traderEntity.getOverPrice() != null
+                && traderEntity.getClosingTime() != null;
+        if (optionalComplete) {
+            traderEntity.setIsOk("1");
+        }
         
         // Insert into database
         int rows = traderMapper.insert(traderEntity);
