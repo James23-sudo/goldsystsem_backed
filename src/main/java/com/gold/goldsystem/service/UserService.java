@@ -18,4 +18,11 @@ public interface UserService {
      * @return 查询结果
      */
     Result getUserById(String id);
+
+    /**
+     * 查询所有用户列表
+     * @return 用户列表
+     */
+    Result getUser();
+
 }

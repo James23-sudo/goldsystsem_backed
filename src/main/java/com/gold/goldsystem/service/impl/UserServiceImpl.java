@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -40,6 +42,15 @@ public class UserServiceImpl implements UserService {
             log.error("Failed to add user: {}", userDTO.getId());
             return Result.error(500, "Failed to add user");
         }
+    }
+
+    /**
+     * 查询所有用户列表
+     */
+    @Override
+    public Result getUser() {
+        List<UserEntity> users = userMapper.selectList(null);
+        return Result.success(users);
     }
 
     /**

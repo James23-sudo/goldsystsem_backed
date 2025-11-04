@@ -39,4 +39,14 @@ public class UserController {
         return userService.getUserById(id);
     }
 
+    /**
+     * 查询所有用户信息
+     * @return
+     */
+    @GetMapping("")
+    public Result getUser(){
+        log.info("Received request to get user");
+        return userService.getUser();
+    }
+
 }
