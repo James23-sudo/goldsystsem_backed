@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
 
@@ -183,28 +185,40 @@ public class TraderServiceImpl implements TraderService {
         // 隔夜费（overnightPrice）= 开仓价 × (成交量/100盎司) × 隔夜费比例 / 360
         // 盈亏（inoutPrice）= (开仓价 - 平仓价) × 成交量
         try {
-            java.math.BigDecimal openingPrice = existingTrader.getOpeningPrice();
-            java.math.BigDecimal closingPrice = existingTrader.getClosingPrice();
-            java.math.BigDecimal volume = existingTrader.getVolume(); // 盎司单位
-            java.math.BigDecimal overnightProportion = existingTrader.getOvernightProportion();
+            BigDecimal openingPrice = existingTrader.getOpeningPrice();
+            BigDecimal closingPrice = existingTrader.getClosingPrice();
+            BigDecimal volume = existingTrader.getVolume(); // 盎司单位
+            BigDecimal overnightProportion = existingTrader.getOvernightProportion();
 
             if (openingPrice != null && volume != null && overnightProportion != null) {
-                java.math.BigDecimal lots = volume.divide(new java.math.BigDecimal("100"), 8, java.math.RoundingMode.HALF_UP);
-                java.math.BigDecimal overnight = openingPrice
+                BigDecimal lots = volume.divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP);
+                BigDecimal overnight = openingPrice
                         .multiply(lots)
                         .multiply(overnightProportion)
-                        .divide(new java.math.BigDecimal("360"), 8, java.math.RoundingMode.HALF_UP);
+                        .divide(new BigDecimal("360"), 8, RoundingMode.HALF_UP);
                 // 保留2位小数
-                overnight = overnight.setScale(2, java.math.RoundingMode.HALF_UP);
+                overnight = overnight.setScale(2, RoundingMode.HALF_UP);
                 existingTrader.setOvernightPrice(overnight);
             }
 
             if (openingPrice != null && closingPrice != null && volume != null) {
-                java.math.BigDecimal pnl = openingPrice
-                        .subtract(closingPrice)
-                        .multiply(volume)
-                        .setScale(2, java.math.RoundingMode.HALF_UP);
-                existingTrader.setInoutPrice(pnl);
+                // 根据买卖方向计算盈亏：
+                // 卖出(sell)：(开仓价 - 平仓价) × 成交量
+                // 买多(buy)：(平仓价 - 开仓价) × 成交量
+                String direction = existingTrader.getDirection();
+                BigDecimal pnl = null;
+                if (direction != null) {
+                    if ("sell".equalsIgnoreCase(direction)) {
+                        pnl = openingPrice.subtract(closingPrice).multiply(volume);
+                    } else if ("buy".equalsIgnoreCase(direction)) {
+                        pnl = closingPrice.subtract(openingPrice).multiply(volume);
+                    }
+                }
+                // 仅当识别出方向时写入盈亏，保留两位小数
+                if (pnl != null) {
+                    pnl = pnl.setScale(2, RoundingMode.HALF_UP);
+                    existingTrader.setInoutPrice(pnl);
+                }
             }
         } catch (Exception e) {
             log.warn("更新派生字段计算异常: {}", e.getMessage());
