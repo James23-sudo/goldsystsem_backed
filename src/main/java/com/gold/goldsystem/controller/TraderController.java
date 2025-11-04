@@ -1,5 +1,6 @@
 package com.gold.goldsystem.controller;
 
+import com.gold.goldsystem.dto.TraderDTO;
 import com.gold.goldsystem.entity.Result;
 import com.gold.goldsystem.service.TraderService;
 import jakarta.annotation.Resource;
@@ -21,7 +22,7 @@ public class TraderController {
      * 可选字段：开仓价、平仓价、收盘价、平仓时间、交易品种等
      */
     @PostMapping("/addTrader")
-    public Result addTrader(@RequestBody com.gold.goldsystem.dto.TraderDTO traderDTO) {
+    public Result addTrader(@RequestBody TraderDTO traderDTO) {
         log.info("收到添加交易订单请求: {}", traderDTO);
         return traderService.addTrader(traderDTO);
     }
