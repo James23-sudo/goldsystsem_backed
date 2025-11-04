@@ -28,4 +28,15 @@ public class UserController {
         return userService.addUser(userDTO);
     }
 
+    /**
+     * 查询用户信息
+     * @param id 用户ID
+     * @return 用户信息
+     */
+    @GetMapping("/{id}")
+    public Result getUserById(@PathVariable String id) {
+        log.info("Received request to get user by id: {}", id);
+        return userService.getUserById(id);
+    }
+
 }

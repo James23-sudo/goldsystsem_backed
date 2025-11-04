@@ -11,4 +11,11 @@ public interface UserService {
      * @return 更新结果
      */
     Result addUser(UserDTO userDTO);
+
+    /**
+     * 根据用户ID查询用户信息
+     * @param id 用户ID
+     * @return 查询结果
+     */
+    Result getUserById(String id);
 }

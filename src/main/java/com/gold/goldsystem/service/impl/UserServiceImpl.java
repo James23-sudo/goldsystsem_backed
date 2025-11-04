@@ -41,4 +41,26 @@ public class UserServiceImpl implements UserService {
             return Result.error(500, "Failed to add user");
         }
     }
+
+    /**
+     * 根据用户ID查询用户信息
+     * @param id 用户ID
+     * @return 查询结果
+     */
+    @Override
+    public Result getUserById(String id) {
+        // 参数校验：避免空ID
+        if (id == null || id.isBlank()) {
+            return Result.error(400, "用户ID不能为空");
+        }
+
+        // 通过主键查询用户
+        UserEntity user = userMapper.selectById(id);
+        if (user == null) {
+            return Result.error(404, "用户不存在");
+        }
+
+        // 查询成功，返回用户信息
+        return Result.success(user);
+    }
 }
