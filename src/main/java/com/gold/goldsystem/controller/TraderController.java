@@ -38,6 +38,17 @@ public class TraderController {
     }
 
     /**
+     * 逻辑删除交易订单：将 status 设为 0（无效）
+     * 路由示例：DELETE /api/trader/deleteTrader/{orderId}
+     */
+    @DeleteMapping("/deleteTrader/{orderId}")
+    public Result deleteTrader(@PathVariable String orderId) {
+        // 中文注释：逻辑删除不会移除数据，只将 status 更新为 0
+        log.info("收到逻辑删除交易订单请求: {}", orderId);
+        return traderService.deleteTrader(orderId);
+    }
+
+    /**
      * 查询接口：status=1 固定；isOk=0/1 由前端传参控制
      * 示例：/api/trader/list?isOk=0 或 /api/trader/list?isOk=1&userId=123456
      */
