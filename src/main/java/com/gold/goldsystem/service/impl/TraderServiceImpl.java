@@ -49,24 +49,52 @@ public class TraderServiceImpl implements TraderService {
         if (traderDTO.getDirection() == null || traderDTO.getDirection().isBlank()) {
             return Result.error(400, "买卖方向为必填");
         }
-        if (traderDTO.getVolume() == null) {
-            return Result.error(400, "成交量为必填(盎司单位)");
+        if (!traderDTO.getDirection().equals("balance")){
+            if (traderDTO.getVolume() == null) {
+                return Result.error(400, "成交量为必填(盎司单位)");
+            }
+            if (traderDTO.getOvernightProportion() == null) {
+                return Result.error(400, "隔夜费比例为必填");
+            }
+        }else{
+            if (traderDTO.getEntryExit() == null){
+                return Result.error(400, "出入金为必填");
+            }
         }
-        if (traderDTO.getOvernightProportion() == null) {
-            return Result.error(400, "隔夜费比例为必填");
-        }
+
+
         // Check if order ID already exists
         TraderEntity existingTrader = traderMapper.selectById(traderDTO.getOrderId());
         if (existingTrader != null) {
             return Result.error(400, "订单号已存在!");
         }
-        
+
         // Check if user exists
         UserEntity user = userMapper.selectById(traderDTO.getId());
         if (user == null) {
             return Result.error(400, "用户不存在!");
         }
-        
+
+        if (traderDTO.getDirection().equals("balance")){
+            TraderEntity traderEntity = new TraderEntity()
+                    .setId(traderDTO.getId())
+                    .setOrderId(traderDTO.getOrderId())
+                    .setOpeningTime(traderDTO.getOpeningTime())
+                    .setDirection(traderDTO.getDirection())
+                    .setEntryExit(traderDTO.getEntryExit())
+                    .setInoutPrice(traderDTO.getEntryExit())
+                    .setStatus("1")
+                    .setIsOk("1");
+            int rows = traderMapper.insert(traderEntity);
+            if (rows > 0) {
+                log.info("Trader added successfully: {}", traderDTO.getOrderId());
+                return Result.success(200, "交易订单添加成功");
+            } else {
+                log.error("Failed to add trader: {}", traderDTO.getOrderId());
+                return Result.error(500, "交易订单添加失败");
+            }
+        }
+
         // Convert DTO to Entity（先赋原始字段）
         TraderEntity traderEntity = new TraderEntity()
                 .setId(traderDTO.getId())
