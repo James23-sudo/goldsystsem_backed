@@ -16,6 +16,10 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 
@@ -120,12 +124,14 @@ public class TraderServiceImpl implements TraderService {
             BigDecimal overnightProportion = traderEntity.getOvernightProportion();
 
             // 隔夜费：开仓价 × (成交量/100盎司) × 隔夜费比例 ÷ 360
-            if (openingPrice != null && volume != null && overnightProportion != null) {
+            if (openingPrice != null && volume != null && overnightProportion != null && traderEntity.getOpeningTime() != null && traderEntity.getClosingTime() != null) {
                 BigDecimal lots = volume.divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP);
+                long overnightDays = calculateOvernightDays(traderEntity.getOpeningTime(), traderEntity.getClosingTime());
                 BigDecimal overnight = openingPrice
                         .multiply(lots)
                         .multiply(overnightProportion)
                         .divide(new BigDecimal("360"), 8, RoundingMode.HALF_UP)
+                        .multiply(new BigDecimal(overnightDays))
                         .setScale(2, RoundingMode.HALF_UP);
                 traderEntity.setOvernightPrice(overnight);
             }
@@ -259,12 +265,14 @@ public class TraderServiceImpl implements TraderService {
             BigDecimal volume = existingTrader.getVolume(); // 盎司单位
             BigDecimal overnightProportion = existingTrader.getOvernightProportion();
 
-            if (openingPrice != null && volume != null && overnightProportion != null) {
+            if (openingPrice != null && volume != null && overnightProportion != null && existingTrader.getOpeningTime() != null && existingTrader.getClosingTime() != null) {
                 BigDecimal lots = volume.divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP);
+                long overnightDays = calculateOvernightDays(existingTrader.getOpeningTime(), existingTrader.getClosingTime());
                 BigDecimal overnight = openingPrice
                         .multiply(lots)
                         .multiply(overnightProportion)
-                        .divide(new BigDecimal("360"), 8, RoundingMode.HALF_UP);
+                        .divide(new BigDecimal("360"), 8, RoundingMode.HALF_UP)
+                        .multiply(new BigDecimal(overnightDays));
                 // 保留2位小数
                 overnight = overnight.setScale(2, RoundingMode.HALF_UP);
                 existingTrader.setOvernightPrice(overnight);
@@ -313,6 +321,15 @@ public class TraderServiceImpl implements TraderService {
             log.error("Failed to update trader: {}", traderDTO.getOrderId());
             return Result.error(500, "交易订单更新失败");
         }
+    }
+
+    private long calculateOvernightDays(LocalDateTime openingTime, LocalDateTime closingTime) {
+        if (openingTime == null || closingTime == null) {
+            return 0;
+        }
+        LocalDate openingDate = openingTime.toLocalDate();
+        LocalDate closingDate = closingTime.toLocalDate();
+        return Duration.between(openingDate.atStartOfDay(), closingDate.atStartOfDay()).toDays();
     }
 
     @Override
