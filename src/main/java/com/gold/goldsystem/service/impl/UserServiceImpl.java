@@ -5,12 +5,14 @@ import com.gold.goldsystem.entity.Result;
 import com.gold.goldsystem.entity.UserEntity;
 import com.gold.goldsystem.mapper.UserMapper;
 import com.gold.goldsystem.service.UserService;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 @Slf4j
@@ -73,5 +75,24 @@ public class UserServiceImpl implements UserService {
 
         // 查询成功，返回用户信息
         return Result.success(user);
+    }
+
+    @Override
+    public Result listUsers(Integer page, Integer size) {
+        if (size != null && size > 0) {
+            long currentPage = (page == null || page <= 0) ? 1L : page.longValue();
+            Page<UserEntity> p = new Page<>(currentPage, size);
+            Page<UserEntity> resultPage = userMapper.selectPage(p, null);
+            return Result.success(
+                    Map.of(
+                            "records", resultPage.getRecords(),
+                            "total", resultPage.getTotal(),
+                            "pages", resultPage.getPages(),
+                            "current", resultPage.getCurrent(),
+                            "size", resultPage.getSize()
+                    )
+            );
+        }
+        return Result.success(userMapper.selectList(null));
     }
 }

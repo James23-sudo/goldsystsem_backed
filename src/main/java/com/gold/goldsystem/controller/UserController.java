@@ -49,4 +49,10 @@ public class UserController {
         return userService.getUser();
     }
 
+    @GetMapping("/list")
+    public Result listUsers(@RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) {
+        log.info("Received request to list users with pagination: page={}, size={}", page, size);
+        return userService.listUsers(page, size);
+    }
+
 }

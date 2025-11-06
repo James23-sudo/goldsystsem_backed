@@ -25,4 +25,5 @@ public interface UserService {
      */
     Result getUser();
 
+    Result listUsers(Integer page, Integer size);
 }
