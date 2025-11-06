@@ -60,6 +60,9 @@ public class TraderServiceImpl implements TraderService {
             if (traderDTO.getOvernightProportion() == null) {
                 return Result.error(400, "隔夜费比例为必填");
             }
+            if(traderDTO.getTraderSelect() == null){
+                return Result.error(400, "交易时间段为必填");
+            }
         }else{
             if (traderDTO.getEntryExit() == null){
                 return Result.error(400, "出入金为必填");
@@ -113,6 +116,7 @@ public class TraderServiceImpl implements TraderService {
                 .setOverPrice(traderDTO.getOverPrice())
                 .setEntryExit(traderDTO.getEntryExit())
                 .setOvernightProportion(traderDTO.getOvernightProportion())
+                .setTraderSelect(traderDTO.getTraderSelect())
                 .setStatus(traderDTO.getStatus())
                 .setIsOk(traderDTO.getIsOk());
 
@@ -182,7 +186,7 @@ public class TraderServiceImpl implements TraderService {
      * 通用查询：status=1；isOk=0/1 由前端传参控制
      */
     @Override
-    public Result queryTraders(String isOk, String userId, Integer page, Integer size) {
+    public Result queryTraders(String isOk, String userId, Integer page, String traderSelect, Integer size) {
         if (isOk == null || isOk.isBlank()) {
             return Result.error(400, "参数isOk为必填，取值0或1");
         }
@@ -192,6 +196,9 @@ public class TraderServiceImpl implements TraderService {
         LambdaQueryWrapper<TraderEntity> qw = new LambdaQueryWrapper<>();
         qw.eq(TraderEntity::getStatus, "1");
         qw.eq(TraderEntity::getIsOk, isOk);
+        if(traderSelect != null) {
+            qw.eq(TraderEntity::getTraderSelect, traderSelect);
+        }
         if (userId != null && !userId.isBlank()) {
             qw.eq(TraderEntity::getId, userId);
         }
@@ -208,7 +215,8 @@ public class TraderServiceImpl implements TraderService {
                 TraderEntity::getOvernightPrice,
                 TraderEntity::getInoutPrice,
                 TraderEntity::getOverPrice,
-                TraderEntity::getEntryExit
+                TraderEntity::getEntryExit,
+                TraderEntity::getTraderSelect
         );
         qw.orderByDesc(TraderEntity::getOpeningTime);
         // 分页逻辑：如果提供了 size（>0），则启用分页；未提供 page 时默认 page=1

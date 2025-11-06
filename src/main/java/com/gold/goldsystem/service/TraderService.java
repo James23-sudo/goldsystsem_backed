@@ -33,5 +33,5 @@ public interface TraderService {
      * @param userId 用户ID，可为空
      * @return 查询结果
      */
-    Result queryTraders(String isOk, String userId, Integer page, Integer size);
+    Result queryTraders(String isOk, String userId, Integer page, String traderSelect, Integer size);
 }

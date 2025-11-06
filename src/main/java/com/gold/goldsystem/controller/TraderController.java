@@ -56,9 +56,10 @@ public class TraderController {
     public Result list(@RequestParam("isOk") String isOk,
                        @RequestParam(value = "userId", required = false) String userId,
                        @RequestParam(value = "page", required = false) Integer page,
+                       @RequestParam(value = "traderSelect", required = false) String traderSelect,
                        @RequestParam(value = "size", required = false) Integer size) {
         // 中文注释：分页为可选参数；不传则返回全部列表
-        return traderService.queryTraders(isOk, userId, page, size);
+        return traderService.queryTraders(isOk, userId, page, traderSelect, size);
     }
     
 }
