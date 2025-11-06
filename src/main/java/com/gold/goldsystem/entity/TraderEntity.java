@@ -96,4 +96,5 @@ public class TraderEntity {
      * 隔夜费比例
      */
     private BigDecimal overnightProportion;
+
 }

@@ -12,4 +12,12 @@ import lombok.experimental.Accessors;
 public class UserDTO {
     private String id;
     private String remark;
+    private String left_money;
+    private String value;
+    private String deposit;
+    private String can_pay;
+    private String was_pay;
+    private String was_income;
+    private String having_income;
+    private String total_income;
 }
