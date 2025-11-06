@@ -1,5 +1,6 @@
 package com.gold.goldsystem.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.gold.goldsystem.dto.UserDTO;
 import com.gold.goldsystem.entity.Result;
 import com.gold.goldsystem.entity.UserEntity;
@@ -82,7 +83,7 @@ public class UserServiceImpl implements UserService {
         if (size != null && size > 0) {
             long currentPage = (page == null || page <= 0) ? 1L : page.longValue();
             Page<UserEntity> p = new Page<>(currentPage, size);
-            Page<UserEntity> resultPage = userMapper.selectPage(p, null);
+            Page<UserEntity> resultPage = userMapper.selectPage(p, new QueryWrapper<>());
             return Result.success(
                     Map.of(
                             "records", resultPage.getRecords(),
