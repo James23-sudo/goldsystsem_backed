@@ -95,4 +95,9 @@ public class TraderDTO {
      * 隔夜费比例
      */
     private BigDecimal overnightProportion;
+
+    /**
+     * am\pm
+     */
+    private String traderSelect;
 }

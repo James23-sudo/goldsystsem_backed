@@ -97,4 +97,8 @@ public class TraderEntity {
      */
     private BigDecimal overnightProportion;
 
+    /**
+     * am\pm
+     */
+    private String traderSelect;
 }
