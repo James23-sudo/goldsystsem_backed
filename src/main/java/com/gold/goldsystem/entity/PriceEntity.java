@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Accessors(chain = true)
 public class PriceEntity {
-
+    @TableId
     @JsonFormat(pattern = "yyyy-MM-dd")
     private String priceDate;
     private BigDecimal buyPrice;
