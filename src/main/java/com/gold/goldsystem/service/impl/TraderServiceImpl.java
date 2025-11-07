@@ -16,10 +16,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.*;
 import java.util.List;
 import java.util.Map;
 
@@ -52,6 +49,9 @@ public class TraderServiceImpl implements TraderService {
         }
         if (traderDTO.getDirection() == null || traderDTO.getDirection().isBlank()) {
             return Result.error(400, "买卖方向为必填");
+        }
+        if (traderDTO.getScheduledTime() == null) {
+            return Result.error(400, "预定时间为必填");
         }
         if (!traderDTO.getDirection().equals("balance")){
             if (traderDTO.getVolume() == null) {
@@ -108,6 +108,7 @@ public class TraderServiceImpl implements TraderService {
                 .setOrderId(traderDTO.getOrderId())
                 .setOpeningTime(traderDTO.getOpeningTime())
                 .setClosingTime(traderDTO.getClosingTime())
+                .setScheduledTime(traderDTO.getScheduledTime())
                 .setDirection(traderDTO.getDirection())
                 .setVolume(traderDTO.getVolume())
                 .setVarieties(traderDTO.getVarieties())
@@ -127,17 +128,10 @@ public class TraderServiceImpl implements TraderService {
             BigDecimal volume = traderEntity.getVolume(); // 盎司
             BigDecimal overnightProportion = traderEntity.getOvernightProportion();
 
-            // 隔夜费：开仓价 × (成交量/100盎司) × 隔夜费比例 ÷ 360
-            if (openingPrice != null && volume != null && overnightProportion != null && traderEntity.getOpeningTime() != null && traderEntity.getClosingTime() != null) {
-                BigDecimal lots = volume.divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP);
-                long overnightDays = calculateOvernightDays(traderEntity.getOpeningTime(), traderEntity.getClosingTime());
-                BigDecimal overnight = openingPrice
-                        .multiply(lots)
-                        .multiply(overnightProportion)
-                        .divide(new BigDecimal("360"), 8, RoundingMode.HALF_UP)
-                        .multiply(new BigDecimal(overnightDays))
-                        .setScale(2, RoundingMode.HALF_UP);
-                traderEntity.setOvernightPrice(overnight);
+            // 隔夜费：根据新规则计算
+            if (traderEntity.getOpeningTime() != null && traderEntity.getClosingTime() != null) {
+                BigDecimal overnightFee = calculateOvernightFee(traderEntity.getOpeningTime(), traderEntity.getClosingTime(), openingPrice, volume, overnightProportion);
+                traderEntity.setOvernightPrice(overnightFee);
             }
 
             // 盈亏：依据方向 buy/sell
@@ -163,6 +157,7 @@ public class TraderServiceImpl implements TraderService {
         boolean optionalComplete = traderEntity.getOpeningPrice() != null
                 && traderEntity.getClosingPrice() != null
                 && traderEntity.getOverPrice() != null
+                && traderEntity.getScheduledTime() != null
                 && traderEntity.getClosingTime() != null;
         if (optionalComplete) {
             traderEntity.setIsOk("1");
@@ -217,7 +212,8 @@ public class TraderServiceImpl implements TraderService {
                 TraderEntity::getOverPrice,
                 TraderEntity::getEntryExit,
                 TraderEntity::getOvernightProportion,
-                TraderEntity::getTraderSelect
+                TraderEntity::getTraderSelect,
+                TraderEntity::getScheduledTime
         );
         qw.orderByDesc(TraderEntity::getOpeningTime);
         // 分页逻辑：如果提供了 size（>0），则启用分页；未提供 page 时默认 page=1
@@ -264,6 +260,7 @@ public class TraderServiceImpl implements TraderService {
         if (traderDTO.getEntryExit() != null) existingTrader.setEntryExit(traderDTO.getEntryExit());
         if (traderDTO.getOvernightProportion() != null) existingTrader.setOvernightProportion(traderDTO.getOvernightProportion());
         if (traderDTO.getStatus() != null) existingTrader.setStatus(traderDTO.getStatus());
+        if (traderDTO.getScheduledTime() != null) existingTrader.setScheduledTime(traderDTO.getScheduledTime());
 
         // 派生字段计算（中文注释）：
         // 隔夜费（overnightPrice）= 开仓价 × (成交量/100盎司) × 隔夜费比例 / 360
@@ -274,17 +271,10 @@ public class TraderServiceImpl implements TraderService {
             BigDecimal volume = existingTrader.getVolume(); // 盎司单位
             BigDecimal overnightProportion = existingTrader.getOvernightProportion();
 
-            if (openingPrice != null && volume != null && overnightProportion != null && existingTrader.getOpeningTime() != null && existingTrader.getClosingTime() != null) {
-                BigDecimal lots = volume.divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP);
-                long overnightDays = calculateOvernightDays(existingTrader.getOpeningTime(), existingTrader.getClosingTime());
-                BigDecimal overnight = openingPrice
-                        .multiply(lots)
-                        .multiply(overnightProportion)
-                        .divide(new BigDecimal("360"), 8, RoundingMode.HALF_UP)
-                        .multiply(new BigDecimal(overnightDays));
-                // 保留2位小数
-                overnight = overnight.setScale(2, RoundingMode.HALF_UP);
-                existingTrader.setOvernightPrice(overnight);
+            // 隔夜费：根据新规则计算
+            if (existingTrader.getOpeningTime() != null && existingTrader.getClosingTime() != null) {
+                BigDecimal overnightFee = calculateOvernightFee(existingTrader.getOpeningTime(), existingTrader.getClosingTime(), openingPrice, volume, overnightProportion);
+                existingTrader.setOvernightPrice(overnightFee);
             }
 
             if (openingPrice != null && closingPrice != null && volume != null) {
@@ -330,6 +320,46 @@ public class TraderServiceImpl implements TraderService {
             log.error("Failed to update trader: {}", traderDTO.getOrderId());
             return Result.error(500, "交易订单更新失败");
         }
+    }
+
+    private BigDecimal calculateOvernightFee(LocalDateTime openingTime, LocalDateTime closingTime, BigDecimal openingPrice, BigDecimal volume, BigDecimal overnightProportion) {
+        if (openingTime == null || closingTime == null || openingPrice == null || volume == null || overnightProportion == null) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal totalFee = BigDecimal.ZERO;
+        LocalDateTime current = openingTime;
+
+        BigDecimal lots = volume.divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP);
+        BigDecimal dailyFeeBase = openingPrice
+                .multiply(lots)
+                .multiply(overnightProportion)
+                .divide(new BigDecimal("360"), 8, RoundingMode.HALF_UP);
+
+        while (current.isBefore(closingTime)) {
+            DayOfWeek dayOfWeek = current.getDayOfWeek();
+            int multiplier = 0;
+
+            switch (dayOfWeek) {
+                case MONDAY:
+                case TUESDAY:
+                case THURSDAY:
+                case FRIDAY:
+                    multiplier = 1;
+                    break;
+                case WEDNESDAY:
+                    multiplier = 3;
+                    break;
+            }
+
+            if (multiplier > 0) {
+                totalFee = totalFee.add(dailyFeeBase.multiply(new BigDecimal(multiplier)));
+            }
+
+            current = current.plusDays(1);
+        }
+
+        return totalFee.setScale(2, RoundingMode.HALF_UP);
     }
 
     private long calculateOvernightDays(LocalDateTime openingTime, LocalDateTime closingTime) {

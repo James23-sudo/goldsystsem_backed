@@ -35,6 +35,12 @@ public class TraderDTO {
      */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime closingTime;
+
+    /**
+     * 预定时间
+     */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime scheduledTime;
     
     /**
      * 买卖方向

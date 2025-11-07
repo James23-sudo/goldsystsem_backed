@@ -2,6 +2,7 @@ package com.gold.goldsystem.entity;
 
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -36,6 +37,11 @@ public class TraderEntity {
      * 平仓时间
      */
     private LocalDateTime closingTime;
+
+    /**
+     * 预定时间
+     */
+    private LocalDateTime scheduledTime;
     
     /**
      * 买卖方向
