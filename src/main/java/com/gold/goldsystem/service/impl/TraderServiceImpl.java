@@ -216,6 +216,7 @@ public class TraderServiceImpl implements TraderService {
                 TraderEntity::getInoutPrice,
                 TraderEntity::getOverPrice,
                 TraderEntity::getEntryExit,
+                TraderEntity::getOvernightProportion,
                 TraderEntity::getTraderSelect
         );
         qw.orderByDesc(TraderEntity::getOpeningTime);
