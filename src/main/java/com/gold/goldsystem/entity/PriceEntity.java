@@ -18,8 +18,8 @@ import java.time.LocalDateTime;
 @Accessors(chain = true)
 public class PriceEntity {
     @TableId
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime priceDate;
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private String priceDate;
     private BigDecimal buyPrice;
     private BigDecimal sellPrice;
     private String isSelectAm;

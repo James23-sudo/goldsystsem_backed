@@ -8,8 +8,8 @@ import java.time.LocalDateTime;
 
 @Data
 public class PriceDTO {
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime priceDate;
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private String priceDate;
     private BigDecimal buyPrice;
     private BigDecimal sellPrice;
     private String isSelectAm;
