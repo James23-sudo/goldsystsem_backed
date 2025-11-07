@@ -50,9 +50,7 @@ public class TraderServiceImpl implements TraderService {
         if (traderDTO.getDirection() == null || traderDTO.getDirection().isBlank()) {
             return Result.error(400, "买卖方向为必填");
         }
-        if (traderDTO.getScheduledTime() == null) {
-            return Result.error(400, "预定时间为必填");
-        }
+
         if (!traderDTO.getDirection().equals("balance")){
             if (traderDTO.getVolume() == null) {
                 return Result.error(400, "成交量为必填(盎司单位)");
@@ -62,6 +60,9 @@ public class TraderServiceImpl implements TraderService {
             }
             if(traderDTO.getTraderSelect() == null){
                 return Result.error(400, "交易时间段为必填");
+            }
+            if (traderDTO.getScheduledTime() == null) {
+                return Result.error(400, "预定时间为必填");
             }
         }else{
             if (traderDTO.getEntryExit() == null){
