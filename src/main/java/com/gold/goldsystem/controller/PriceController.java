@@ -1,6 +1,7 @@
 package com.gold.goldsystem.controller;
 
 import com.gold.goldsystem.dto.PriceDTO;
+import com.gold.goldsystem.entity.Result;
 import com.gold.goldsystem.service.PriceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,7 +17,7 @@ public class PriceController {
     private PriceService priceService;
 
     @PostMapping("/save")
-    public void saveOrUpdatePrice(@RequestBody PriceDTO priceDTO) {
-        priceService.saveOrUpdatePrice(priceDTO);
+    public Result saveOrUpdatePrice(@RequestBody PriceDTO priceDTO) {
+        return priceService.saveOrUpdatePrice(priceDTO);
     }
 }
