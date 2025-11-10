@@ -96,6 +96,10 @@ public class TraderServiceImpl implements TraderService {
             }
             
             user.setLeftMoney(String.valueOf(newBalance));
+            // 计算可用预付款 = 用户余额 - 已用预付款
+            double wasPay = Double.parseDouble(user.getWasPay() != null ? user.getWasPay() : "0");
+            double canPay = newBalance - wasPay;
+            user.setCanPay(String.valueOf(canPay));
             
             int userUpdateRows = userMapper.updateById(user);
             if (userUpdateRows <= 0) {
@@ -128,6 +132,10 @@ public class TraderServiceImpl implements TraderService {
         user.setDeposit(String.valueOf(newDeposit));
         // 已用预付款与保证金保持一致
         user.setWasPay(String.valueOf(newDeposit));
+        // 计算可用预付款 = 用户余额 - 已用预付款
+        double currentBalance = Double.parseDouble(user.getLeftMoney() != null ? user.getLeftMoney() : "0");
+        double canPay = currentBalance - newDeposit;
+        user.setCanPay(String.valueOf(canPay));
         
         int userDepositUpdateRows = userMapper.updateById(user);
         if (userDepositUpdateRows <= 0) {
@@ -369,6 +377,10 @@ public class TraderServiceImpl implements TraderService {
                 user.setDeposit(String.valueOf(newDeposit));
                 // 已用预付款与保证金保持一致
                 user.setWasPay(String.valueOf(newDeposit));
+                // 计算可用预付款 = 用户余额 - 已用预付款
+                double currentBalance = Double.parseDouble(user.getLeftMoney() != null ? user.getLeftMoney() : "0");
+                double canPay = currentBalance - newDeposit;
+                user.setCanPay(String.valueOf(canPay));
                 int userDepositUpdateRows = userMapper.updateById(user);
                 if (userDepositUpdateRows > 0) {
                     log.info("用户保证金已扣除: 用户ID={}, 扣除金额={}, 新保证金={}", user.getId(), depositAmount, newDeposit);
