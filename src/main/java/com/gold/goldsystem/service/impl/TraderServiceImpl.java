@@ -127,13 +127,23 @@ public class TraderServiceImpl implements TraderService {
 
         // 计算并更新用户保证金：成交量 × 100 HKD
         double depositAmount = traderDTO.getVolume().doubleValue() * 100;
+        
+        // 检查用户可用预付款是否足够扣除保证金
+        double currentBalance = Double.parseDouble(user.getLeftMoney() != null ? user.getLeftMoney() : "0");
+        double currentWasPay = Double.parseDouble(user.getWasPay() != null ? user.getWasPay() : "0");
+        double currentCanPay = currentBalance - currentWasPay;
+        
+        if (currentCanPay < depositAmount) {
+            log.error("用户可用预付款不足: 用户ID={}, 可用预付款={}, 需要保证金={}", traderDTO.getId(), currentCanPay, depositAmount);
+            return Result.error(400, "可用预付款不足，无法添加交易订单");
+        }
+        
         double currentDeposit = Double.parseDouble(user.getDeposit() != null ? user.getDeposit() : "0");
         double newDeposit = currentDeposit + depositAmount;
         user.setDeposit(String.valueOf(newDeposit));
         // 已用预付款与保证金保持一致
         user.setWasPay(String.valueOf(newDeposit));
         // 计算可用预付款 = 用户余额 - 已用预付款
-        double currentBalance = Double.parseDouble(user.getLeftMoney() != null ? user.getLeftMoney() : "0");
         double canPay = currentBalance - newDeposit;
         user.setCanPay(String.valueOf(canPay));
         
