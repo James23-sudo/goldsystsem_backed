@@ -126,6 +126,8 @@ public class TraderServiceImpl implements TraderService {
         double currentDeposit = Double.parseDouble(user.getDeposit() != null ? user.getDeposit() : "0");
         double newDeposit = currentDeposit + depositAmount;
         user.setDeposit(String.valueOf(newDeposit));
+        // 已用预付款与保证金保持一致
+        user.setWasPay(String.valueOf(newDeposit));
         
         int userDepositUpdateRows = userMapper.updateById(user);
         if (userDepositUpdateRows <= 0) {
@@ -361,6 +363,8 @@ public class TraderServiceImpl implements TraderService {
                 }
 
                 user.setDeposit(String.valueOf(newDeposit));
+                // 已用预付款与保证金保持一致
+                user.setWasPay(String.valueOf(newDeposit));
                 int userDepositUpdateRows = userMapper.updateById(user);
                 if (userDepositUpdateRows > 0) {
                     log.info("用户保证金已扣除: 用户ID={}, 扣除金额={}, 新保证金={}", user.getId(), depositAmount, newDeposit);
