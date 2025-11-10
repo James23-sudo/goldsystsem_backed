@@ -1,5 +1,7 @@
 package com.gold.goldsystem.entity;
 
+import java.math.BigDecimal;
+
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.AllArgsConstructor;
 import lombok.Data;
