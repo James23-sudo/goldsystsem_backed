@@ -84,19 +84,37 @@ public class TraderServiceImpl implements TraderService {
         }
 
         if (traderDTO.getDirection().equals("balance")){
+            // Update user balance when direction is "balance"
+            double currentBalance = Double.parseDouble(user.getLeftMoney() != null ? user.getLeftMoney() : "0");
+            double entryExitAmount = traderDTO.getEntryExit().doubleValue();
+            double newBalance = currentBalance + entryExitAmount;
+            
+            // Check if new balance would be negative
+            if (newBalance < 0) {
+                log.error("Insufficient balance for user: {}. Current: {}, Requested: {}", traderDTO.getId(), currentBalance, entryExitAmount);
+                return Result.error(400, "余额不足，操作后余额不能为负值");
+            }
+            
+            user.setLeftMoney(String.valueOf(newBalance));
+            
+            int userUpdateRows = userMapper.updateById(user);
+            if (userUpdateRows <= 0) {
+                log.error("Failed to update user balance for user: {}", traderDTO.getId());
+                return Result.error(500, "更新用户余额失败");
+            }
+            
             TraderEntity traderEntity = new TraderEntity()
                     .setId(traderDTO.getId())
                     .setOrderId(traderDTO.getOrderId())
                     .setOpeningTime(traderDTO.getOpeningTime())
                     .setDirection(traderDTO.getDirection())
                     .setEntryExit(traderDTO.getEntryExit())
-                    .setInoutPrice(traderDTO.getEntryExit())
                     .setStatus("1")
                     .setIsOk("1");
             int rows = traderMapper.insert(traderEntity);
             if (rows > 0) {
-                log.info("Trader added successfully: {}", traderDTO.getOrderId());
-                return Result.success(200, "交易订单添加成功");
+                log.info("Trader added successfully and user balance updated: {}", traderDTO.getOrderId());
+                return Result.success(200, "交易订单添加成功，用户余额已更新");
             } else {
                 log.error("Failed to add trader: {}", traderDTO.getOrderId());
                 return Result.error(500, "交易订单添加失败");
