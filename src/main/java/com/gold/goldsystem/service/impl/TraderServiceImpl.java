@@ -356,7 +356,11 @@ public class TraderServiceImpl implements TraderService {
                 double depositAmount = existingTrader.getVolume().doubleValue() * 100;
                 double currentDeposit = Double.parseDouble(user.getDeposit() != null ? user.getDeposit() : "0");
                 double newDeposit = currentDeposit - depositAmount;
-
+                // 已平仓盈亏
+                double currentWasIncome = Double.parseDouble(user.getWasIncome() != null ? user.getWasIncome() : "0");
+                double inoutPrice = existingTrader.getInoutPrice().doubleValue();
+                double newWasIncome = currentWasIncome + inoutPrice;
+                user.setWasIncome(String.valueOf(newWasIncome));
                 if (newDeposit < 0) {
                     log.warn("扣除后用户保证金将为负值: 用户ID={}, 当前保证金={}, 扣除金额={}", user.getId(), currentDeposit, depositAmount);
                     newDeposit = 0; // 如果为负值则设为0
