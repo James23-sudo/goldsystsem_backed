@@ -370,7 +370,7 @@ public class TraderServiceImpl implements TraderService {
         if (rows > 0) {
             log.info("交易订单更新成功: 订单号={}", traderDTO.getOrderId());
             UserEntity user = userMapper.selectById(existingTrader.getId());
-            if (user != null && existingTrader.getVolume() != null) {
+            if (user != null && existingTrader.getVolume() != null && "1".equals(existingTrader.getIsOk())) {
                 double depositAmount = existingTrader.getVolume().doubleValue() * 100;
                 double currentDeposit = Double.parseDouble(user.getDeposit() != null ? user.getDeposit() : "0");
                 double newDeposit = currentDeposit - depositAmount;
