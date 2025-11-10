@@ -107,4 +107,9 @@ public class TraderEntity {
      * am\pm
      */
     private String traderSelect;
+
+    /**
+     *  保证金
+     */
+    private BigDecimal deposit;
 }

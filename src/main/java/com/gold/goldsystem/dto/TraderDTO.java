@@ -106,4 +106,9 @@ public class TraderDTO {
      * am\pm
      */
     private String traderSelect;
+
+    /**
+     * 保证金
+     */
+    private BigDecimal deposit;
 }

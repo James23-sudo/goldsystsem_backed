@@ -84,14 +84,14 @@ public class TraderServiceImpl implements TraderService {
         }
 
         if (traderDTO.getDirection().equals("balance")){
-            // Update user balance when direction is "balance"
+            // 当方向为"balance"时，更新用户余额
             double currentBalance = Double.parseDouble(user.getLeftMoney() != null ? user.getLeftMoney() : "0");
             double entryExitAmount = traderDTO.getEntryExit().doubleValue();
             double newBalance = currentBalance + entryExitAmount;
             
-            // Check if new balance would be negative
+            // 检查新余额是否为负值
             if (newBalance < 0) {
-                log.error("Insufficient balance for user: {}. Current: {}, Requested: {}", traderDTO.getId(), currentBalance, entryExitAmount);
+                log.error("用户余额不足: 用户ID={}, 当前余额={}, 请求金额={}", traderDTO.getId(), currentBalance, entryExitAmount);
                 return Result.error(400, "余额不足，操作后余额不能为负值");
             }
             
@@ -99,7 +99,7 @@ public class TraderServiceImpl implements TraderService {
             
             int userUpdateRows = userMapper.updateById(user);
             if (userUpdateRows <= 0) {
-                log.error("Failed to update user balance for user: {}", traderDTO.getId());
+                log.error("更新用户余额失败: 用户ID={}", traderDTO.getId());
                 return Result.error(500, "更新用户余额失败");
             }
             
@@ -113,13 +113,26 @@ public class TraderServiceImpl implements TraderService {
                     .setIsOk("1");
             int rows = traderMapper.insert(traderEntity);
             if (rows > 0) {
-                log.info("Trader added successfully and user balance updated: {}", traderDTO.getOrderId());
+                log.info("交易订单添加成功并更新用户余额: 订单号={}", traderDTO.getOrderId());
                 return Result.success(200, "交易订单添加成功，用户余额已更新");
             } else {
-                log.error("Failed to add trader: {}", traderDTO.getOrderId());
+                log.error("添加交易订单失败: 订单号={}", traderDTO.getOrderId());
                 return Result.error(500, "交易订单添加失败");
             }
         }
+
+        // 计算并更新用户保证金：成交量 × 100 HKD
+        double depositAmount = traderDTO.getVolume().doubleValue() * 100;
+        double currentDeposit = Double.parseDouble(user.getDeposit() != null ? user.getDeposit() : "0");
+        double newDeposit = currentDeposit + depositAmount;
+        user.setDeposit(String.valueOf(newDeposit));
+        
+        int userDepositUpdateRows = userMapper.updateById(user);
+        if (userDepositUpdateRows <= 0) {
+            log.error("Failed to update user deposit for user: {}", traderDTO.getId());
+            return Result.error(500, "更新用户保证金失败");
+        }
+        log.info("User deposit updated: userId={}, depositAmount={}, newDeposit={}", traderDTO.getId(), depositAmount, newDeposit);
 
         // Convert DTO to Entity（先赋原始字段）
         TraderEntity traderEntity = new TraderEntity()
@@ -137,6 +150,7 @@ public class TraderServiceImpl implements TraderService {
                 .setEntryExit(traderDTO.getEntryExit())
                 .setOvernightProportion(traderDTO.getOvernightProportion())
                 .setTraderSelect(traderDTO.getTraderSelect())
+                .setDeposit(new BigDecimal(depositAmount))
                 .setStatus(traderDTO.getStatus())
                 .setIsOk(traderDTO.getIsOk());
 
@@ -182,14 +196,14 @@ public class TraderServiceImpl implements TraderService {
             traderEntity.setIsOk("1");
         }
         
-        // Insert into database
+        // 插入数据库
         int rows = traderMapper.insert(traderEntity);
         
         if (rows > 0) {
-            log.info("Trader added successfully: {}", traderDTO.getOrderId());
+            log.info("交易订单添加成功: 订单号={}", traderDTO.getOrderId());
             return Result.success(200, "交易订单添加成功");
         } else {
-            log.error("Failed to add trader: {}", traderDTO.getOrderId());
+            log.error("添加交易订单失败: 订单号={}", traderDTO.getOrderId());
             return Result.error(500, "交易订单添加失败");
         }
     }
@@ -232,7 +246,8 @@ public class TraderServiceImpl implements TraderService {
                 TraderEntity::getEntryExit,
                 TraderEntity::getOvernightProportion,
                 TraderEntity::getTraderSelect,
-                TraderEntity::getScheduledTime
+                TraderEntity::getScheduledTime,
+                TraderEntity::getDeposit
         );
         qw.orderByDesc(TraderEntity::getOpeningTime);
         // 分页逻辑：如果提供了 size（>0），则启用分页；未提供 page 时默认 page=1
@@ -333,10 +348,30 @@ public class TraderServiceImpl implements TraderService {
 
         int rows = traderMapper.updateById(existingTrader);
         if (rows > 0) {
-            log.info("Trader updated successfully: {}", traderDTO.getOrderId());
+            log.info("交易订单更新成功: 订单号={}", traderDTO.getOrderId());
+            UserEntity user = userMapper.selectById(existingTrader.getId());
+            if (user != null && existingTrader.getVolume() != null) {
+                double depositAmount = existingTrader.getVolume().doubleValue() * 100;
+                double currentDeposit = Double.parseDouble(user.getDeposit() != null ? user.getDeposit() : "0");
+                double newDeposit = currentDeposit - depositAmount;
+
+                if (newDeposit < 0) {
+                    log.warn("扣除后用户保证金将为负值: 用户ID={}, 当前保证金={}, 扣除金额={}", user.getId(), currentDeposit, depositAmount);
+                    newDeposit = 0; // 如果为负值则设为0
+                }
+
+                user.setDeposit(String.valueOf(newDeposit));
+                int userDepositUpdateRows = userMapper.updateById(user);
+                if (userDepositUpdateRows > 0) {
+                    log.info("用户保证金已扣除: 用户ID={}, 扣除金额={}, 新保证金={}", user.getId(), depositAmount, newDeposit);
+                } else {
+                    log.error("扣除用户保证金失败: 用户ID={}", user.getId());
+                }
+            }
+
             return Result.success(200, "交易订单更新成功");
         } else {
-            log.error("Failed to update trader: {}", traderDTO.getOrderId());
+            log.error("更新交易订单失败: 订单号={}", traderDTO.getOrderId());
             return Result.error(500, "交易订单更新失败");
         }
     }
@@ -392,21 +427,21 @@ public class TraderServiceImpl implements TraderService {
 
     @Override
     public Result deleteTrader(String orderId) {
-        // Check if trader exists
+        // 检查交易订单是否存在
         TraderEntity existingTrader = traderMapper.selectById(orderId);
         if (existingTrader == null) {
             return Result.error(404, "交易订单不存在");
         }
         
-        // Logical delete: set status to 0
+        // 逻辑删除：将status设为0
         existingTrader.setStatus("0");
         int rows = traderMapper.updateById(existingTrader);
         
         if (rows > 0) {
-            log.info("Trader deleted successfully: {}", orderId);
+            log.info("交易订单删除成功: 订单号={}", orderId);
             return Result.success(200, "交易订单删除成功");
         } else {
-            log.error("Failed to delete trader: {}", orderId);
+            log.error("删除交易订单失败: 订单号={}", orderId);
             return Result.error(500, "交易订单删除失败");
         }
     }
