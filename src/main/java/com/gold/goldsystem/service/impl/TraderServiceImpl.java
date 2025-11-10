@@ -378,6 +378,9 @@ public class TraderServiceImpl implements TraderService {
                 double currentWasIncome = Double.parseDouble(user.getWasIncome() != null ? user.getWasIncome() : "0");
                 double inoutPrice = existingTrader.getInoutPrice().doubleValue();
                 double newWasIncome = currentWasIncome + inoutPrice;
+
+                double newLeftMoney = Double.parseDouble(user.getLeftMoney() != null ? user.getLeftMoney() : "0") + inoutPrice;
+                user.setLeftMoney(String.valueOf(newLeftMoney));
                 user.setWasIncome(String.valueOf(newWasIncome));
                 if (newDeposit < 0) {
                     log.warn("扣除后用户保证金将为负值: 用户ID={}, 当前保证金={}, 扣除金额={}", user.getId(), currentDeposit, depositAmount);
