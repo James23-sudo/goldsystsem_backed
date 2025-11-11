@@ -112,4 +112,14 @@ public class TraderEntity {
      *  保证金
      */
     private BigDecimal deposit;
+
+    /**
+     *  am\pm
+     */
+    private String traderCloseSelect;
+
+    /**
+     * 是否已开仓
+     */
+    private String isOpen;
 }

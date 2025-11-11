@@ -71,17 +71,48 @@ public class PriceServiceImpl implements PriceService {
                 // 买入方向的订单：开仓价 = 本次定价的买入价 + 0.15
                 openingPrice = priceDTO.getBuyPrice().add(new BigDecimal("0.15"));
             } else if ("sell".equalsIgnoreCase(direction)) {
-                // 卖出方向的订单：开仓价 = 本次定价的卖出价 - 0.15
-                openingPrice = priceDTO.getSellPrice().subtract(new BigDecimal("0.15"));
+                // 卖出方向的订单：开仓价 = 本次定价的卖出价 + 0.15
+                openingPrice = priceDTO.getSellPrice().add(new BigDecimal("0.15"));
             }
 
             // 如果是buy或sell订单（排除了balance等其他类型），则更新数据库中的开仓价格
             if (openingPrice != null) {
                 trade.setOpeningPrice(openingPrice);
+                trade.setIsOpen("1");
                 traderMapper.updateById(trade);
             }
         }
         // --- 新增逻辑结束 ---
+
+        // --- 新增逻辑：保存定价后，自动填充待处理订单的平仓价格 ---
+
+        // 1. 查询所有【平仓价为空】且【平仓交易时段匹配】的待处理订单
+        QueryWrapper<TraderEntity> closeTradeQuery = new QueryWrapper<>();
+        closeTradeQuery.isNull("closing_price"); // 条件一：平仓价未填写
+        closeTradeQuery.eq("trader_close_select", traderSelect);   // 条件二：平仓交易时段(am/pm)匹配
+        List<TraderEntity> pendingCloseTrades = traderMapper.selectList(closeTradeQuery);
+
+        // 2. 遍历所有待处理订单，根据买卖方向计算并填充平仓价格
+        // 注意：平仓价格使用的是平仓时段对应的价格，不是开仓时段的价格
+        for (TraderEntity trade : pendingCloseTrades) {
+            BigDecimal closingPrice = null;
+            String direction = trade.getDirection();
+
+            if ("buy".equalsIgnoreCase(direction)) {
+                // 买入方向的订单：平仓价 = 平仓时段的卖出价 - 0.15
+                closingPrice = priceDTO.getSellPrice().subtract(new BigDecimal("0.15"));
+            } else if ("sell".equalsIgnoreCase(direction)) {
+                // 卖出方向的订单：平仓价 = 平仓时段的买入价 - 0.15
+                closingPrice = priceDTO.getBuyPrice().subtract(new BigDecimal("0.15"));
+            }
+
+            // 如果是buy或sell订单（排除了balance等其他类型），则更新数据库中的平仓价格
+            if (closingPrice != null) {
+                trade.setClosingPrice(closingPrice);
+                traderMapper.updateById(trade);
+            }
+        }
+        // --- 平仓价格逻辑结束 ---
 
         // 返回保存后的价格信息给前端
         return Result.success(savedEntity);
