@@ -166,10 +166,10 @@ public class TraderServiceImpl implements TraderService {
                 .setVarieties(traderDTO.getVarieties())
                 .setOpeningPrice(traderDTO.getOpeningPrice())
                 .setClosingPrice(traderDTO.getClosingPrice())
-                .setOverPrice(traderDTO.getOverPrice())
                 .setEntryExit(traderDTO.getEntryExit())
                 .setOvernightProportion(traderDTO.getOvernightProportion())
                 .setTraderSelect(traderDTO.getTraderSelect())
+                .setTraderCloseSelect(traderDTO.getTraderCloseSelect())
                 .setDeposit(new BigDecimal(depositAmount))
                 .setStatus(traderDTO.getStatus())
                 .setIsOk(traderDTO.getIsOk());
@@ -209,7 +209,6 @@ public class TraderServiceImpl implements TraderService {
         // 可选字段齐全（开仓价、平仓价、收盘价、平仓时间）则自动置 isOk=1
         boolean optionalComplete = traderEntity.getOpeningPrice() != null
                 && traderEntity.getClosingPrice() != null
-                && traderEntity.getOverPrice() != null
                 && traderEntity.getScheduledTime() != null
                 && traderEntity.getClosingTime() != null;
         if (optionalComplete) {
@@ -301,10 +300,10 @@ public class TraderServiceImpl implements TraderService {
                 TraderEntity::getClosingPrice,
                 TraderEntity::getOvernightPrice,
                 TraderEntity::getInoutPrice,
-                TraderEntity::getOverPrice,
                 TraderEntity::getEntryExit,
                 TraderEntity::getOvernightProportion,
                 TraderEntity::getTraderSelect,
+                TraderEntity::getTraderCloseSelect,
                 TraderEntity::getScheduledTime,
                 TraderEntity::getDeposit
         );
@@ -336,6 +335,7 @@ public class TraderServiceImpl implements TraderService {
 
         // 查询现有订单
         TraderEntity existingTrader = traderMapper.selectById(traderDTO.getOrderId());
+        log.info("=================={}", traderDTO);
         if (existingTrader == null) {
             return Result.error(404, "交易订单不存在");
         }
@@ -349,11 +349,11 @@ public class TraderServiceImpl implements TraderService {
         if (traderDTO.getVarieties() != null) existingTrader.setVarieties(traderDTO.getVarieties());
         if (traderDTO.getOpeningPrice() != null) existingTrader.setOpeningPrice(traderDTO.getOpeningPrice());
         if (traderDTO.getClosingPrice() != null) existingTrader.setClosingPrice(traderDTO.getClosingPrice());
-        if (traderDTO.getOverPrice() != null) existingTrader.setOverPrice(traderDTO.getOverPrice());
         if (traderDTO.getEntryExit() != null) existingTrader.setEntryExit(traderDTO.getEntryExit());
         if (traderDTO.getOvernightProportion() != null) existingTrader.setOvernightProportion(traderDTO.getOvernightProportion());
         if (traderDTO.getStatus() != null) existingTrader.setStatus(traderDTO.getStatus());
         if (traderDTO.getScheduledTime() != null) existingTrader.setScheduledTime(traderDTO.getScheduledTime());
+        if (traderDTO.getTraderCloseSelect() != null) existingTrader.setTraderCloseSelect(traderDTO.getTraderCloseSelect());
 
         // 派生字段计算（中文注释）：
         // 隔夜费（overnightPrice）= 开仓价 × (成交量/100盎司) × 隔夜费比例 / 360
@@ -396,7 +396,6 @@ public class TraderServiceImpl implements TraderService {
         // 当可选字段齐全（开仓价、平仓价、收盘价、平仓时间）时，自动置 isOk=1；否则保留原状态或按传参覆盖
         boolean optionalComplete = existingTrader.getOpeningPrice() != null
                 && existingTrader.getClosingPrice() != null
-                && existingTrader.getOverPrice() != null
                 && existingTrader.getClosingTime() != null;
         if (optionalComplete) {
             existingTrader.setIsOk("1");
