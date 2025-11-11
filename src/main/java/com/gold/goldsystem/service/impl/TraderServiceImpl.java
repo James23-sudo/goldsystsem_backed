@@ -216,6 +216,45 @@ public class TraderServiceImpl implements TraderService {
             traderEntity.setIsOk("1");
         }
         
+        // 如果isOk=1，需要处理保证金返还和盈亏结算
+        if ("1".equals(traderEntity.getIsOk())) {
+            // 返还保证金：从已扣除的保证金中减去
+            double finalDeposit = currentDeposit; // 不增加保证金，因为要立即返还
+            user.setDeposit(String.valueOf(finalDeposit));
+            user.setWasPay(String.valueOf(finalDeposit));
+            
+            // 已平仓盈亏
+            double currentWasIncome = Double.parseDouble(user.getWasIncome() != null ? user.getWasIncome() : "0");
+            double inoutPrice = traderEntity.getInoutPrice() != null ? traderEntity.getInoutPrice().doubleValue() : 0;
+            double newWasIncome = currentWasIncome + inoutPrice;
+            user.setWasIncome(String.valueOf(newWasIncome));
+            
+            // 获取隔夜费
+            double overnightFee = traderEntity.getOvernightPrice() != null ? traderEntity.getOvernightPrice().doubleValue() : 0;
+            
+            // 更新用户余额：加上盈亏，减去隔夜费
+            double newBalance = currentBalance + inoutPrice - overnightFee;
+            
+            // 检查新余额是否为负值
+            if (newBalance < 0) {
+                log.error("余额不足: 用户ID={}, 当前余额={}, 盈亏={}, 隔夜费={}", traderDTO.getId(), currentBalance, inoutPrice, overnightFee);
+                return Result.error(400, "余额不足，操作后余额不能为负值");
+            }
+            
+            user.setLeftMoney(String.valueOf(newBalance));
+            
+            // 计算可用预付款 = 用户余额 - 已用预付款
+            double finalCanPay = newBalance - finalDeposit;
+            user.setCanPay(String.valueOf(finalCanPay));
+            
+            int userBalanceUpdateRows = userMapper.updateById(user);
+            if (userBalanceUpdateRows <= 0) {
+                log.error("更新用户账户失败: 用户ID={}", traderDTO.getId());
+                return Result.error(500, "更新用户账户失败");
+            }
+            log.info("交易完成，用户账户已更新: 用户ID={}, 盈亏={}, 隔夜费={}, 新余额={}", traderDTO.getId(), inoutPrice, overnightFee, newBalance);
+        }
+        
         // 插入数据库
         int rows = traderMapper.insert(traderEntity);
         
@@ -378,10 +417,22 @@ public class TraderServiceImpl implements TraderService {
                 double currentWasIncome = Double.parseDouble(user.getWasIncome() != null ? user.getWasIncome() : "0");
                 double inoutPrice = existingTrader.getInoutPrice().doubleValue();
                 double newWasIncome = currentWasIncome + inoutPrice;
-
-                double newLeftMoney = Double.parseDouble(user.getLeftMoney() != null ? user.getLeftMoney() : "0") + inoutPrice;
-                user.setLeftMoney(String.valueOf(newLeftMoney));
                 user.setWasIncome(String.valueOf(newWasIncome));
+                
+                // 获取隔夜费
+                double overnightFee = existingTrader.getOvernightPrice() != null ? existingTrader.getOvernightPrice().doubleValue() : 0;
+
+                // 更新用户余额：加上盈亏，减去隔夜费
+                double newLeftMoney = Double.parseDouble(user.getLeftMoney() != null ? user.getLeftMoney() : "0") + inoutPrice - overnightFee;
+                
+                // 检查新余额是否为负值
+                if (newLeftMoney < 0) {
+                    log.error("余额不足: 用户ID={}, 当前余额={}, 盈亏={}, 隔夜费={}", user.getId(), user.getLeftMoney(), inoutPrice, overnightFee);
+                    return Result.error(400, "余额不足，操作后余额不能为负值");
+                }
+                
+                user.setLeftMoney(String.valueOf(newLeftMoney));
+                
                 if (newDeposit < 0) {
                     log.warn("扣除后用户保证金将为负值: 用户ID={}, 当前保证金={}, 扣除金额={}", user.getId(), currentDeposit, depositAmount);
                     newDeposit = 0; // 如果为负值则设为0
@@ -396,9 +447,10 @@ public class TraderServiceImpl implements TraderService {
                 user.setCanPay(String.valueOf(canPay));
                 int userDepositUpdateRows = userMapper.updateById(user);
                 if (userDepositUpdateRows > 0) {
-                    log.info("用户保证金已扣除: 用户ID={}, 扣除金额={}, 新保证金={}", user.getId(), depositAmount, newDeposit);
+                    log.info("用户保证金已扣除: 用户ID={}, 扣除金额={}, 新保证金={}, 盈亏={}, 隔夜费={}, 新余额={}", user.getId(), depositAmount, newDeposit, inoutPrice, overnightFee, newLeftMoney);
                 } else {
                     log.error("扣除用户保证金失败: 用户ID={}", user.getId());
+                    return Result.error(500, "更新用户账户失败");
                 }
             }
 
