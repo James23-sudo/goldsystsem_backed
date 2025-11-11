@@ -116,4 +116,9 @@ public class TraderDTO {
      * 保证金
      */
     private BigDecimal deposit;
+
+    /**
+     * 是否已开仓
+     */
+    private String isOpen;
 }

@@ -78,6 +78,7 @@ public class PriceServiceImpl implements PriceService {
             // 如果是buy或sell订单（排除了balance等其他类型），则更新数据库中的开仓价格
             if (openingPrice != null) {
                 trade.setOpeningPrice(openingPrice);
+                trade.setIsOpen("1");
                 traderMapper.updateById(trade);
             }
         }

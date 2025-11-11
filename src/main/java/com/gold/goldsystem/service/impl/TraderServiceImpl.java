@@ -228,15 +228,12 @@ public class TraderServiceImpl implements TraderService {
             double newWasIncome = currentWasIncome + inoutPrice;
             user.setWasIncome(String.valueOf(newWasIncome));
             
-            // 获取隔夜费
-            double overnightFee = traderEntity.getOvernightPrice() != null ? traderEntity.getOvernightPrice().doubleValue() : 0;
-            
-            // 更新用户余额：加上盈亏，减去隔夜费
-            double newBalance = currentBalance + inoutPrice - overnightFee;
+            // 更新用户余额：只加上盈亏（隔夜费已在每天6点自动扣除）
+            double newBalance = currentBalance + inoutPrice;
             
             // 检查新余额是否为负值
             if (newBalance < 0) {
-                log.error("余额不足: 用户ID={}, 当前余额={}, 盈亏={}, 隔夜费={}", traderDTO.getId(), currentBalance, inoutPrice, overnightFee);
+                log.error("余额不足: 用户ID={}, 当前余额={}, 盈亏={}", traderDTO.getId(), currentBalance, inoutPrice);
                 return Result.error(400, "余额不足，操作后余额不能为负值");
             }
             
@@ -251,7 +248,7 @@ public class TraderServiceImpl implements TraderService {
                 log.error("更新用户账户失败: 用户ID={}", traderDTO.getId());
                 return Result.error(500, "更新用户账户失败");
             }
-            log.info("交易完成，用户账户已更新: 用户ID={}, 盈亏={}, 隔夜费={}, 新余额={}", traderDTO.getId(), inoutPrice, overnightFee, newBalance);
+            log.info("交易完成，用户账户已更新: 用户ID={}, 盈亏={}, 新余额={}", traderDTO.getId(), inoutPrice, newBalance);
         }
         
         // 插入数据库
@@ -417,16 +414,13 @@ public class TraderServiceImpl implements TraderService {
                 double inoutPrice = existingTrader.getInoutPrice().doubleValue();
                 double newWasIncome = currentWasIncome + inoutPrice;
                 user.setWasIncome(String.valueOf(newWasIncome));
-                
-                // 获取隔夜费
-                double overnightFee = existingTrader.getOvernightPrice() != null ? existingTrader.getOvernightPrice().doubleValue() : 0;
 
-                // 更新用户余额：加上盈亏，减去隔夜费
-                double newLeftMoney = Double.parseDouble(user.getLeftMoney() != null ? user.getLeftMoney() : "0") + inoutPrice - overnightFee;
+                // 更新用户余额：只加上盈亏（隔夜费已在每天6点自动扣除）
+                double newLeftMoney = Double.parseDouble(user.getLeftMoney() != null ? user.getLeftMoney() : "0") + inoutPrice;
                 
                 // 检查新余额是否为负值
                 if (newLeftMoney < 0) {
-                    log.error("余额不足: 用户ID={}, 当前余额={}, 盈亏={}, 隔夜费={}", user.getId(), user.getLeftMoney(), inoutPrice, overnightFee);
+                    log.error("余额不足: 用户ID={}, 当前余额={}, 盈亏={}", user.getId(), user.getLeftMoney(), inoutPrice);
                     return Result.error(400, "余额不足，操作后余额不能为负值");
                 }
                 
@@ -446,7 +440,7 @@ public class TraderServiceImpl implements TraderService {
                 user.setCanPay(String.valueOf(canPay));
                 int userDepositUpdateRows = userMapper.updateById(user);
                 if (userDepositUpdateRows > 0) {
-                    log.info("用户保证金已扣除: 用户ID={}, 扣除金额={}, 新保证金={}, 盈亏={}, 隔夜费={}, 新余额={}", user.getId(), depositAmount, newDeposit, inoutPrice, overnightFee, newLeftMoney);
+                    log.info("用户保证金已扣除: 用户ID={}, 扣除金额={}, 新保证金={}, 盈亏={}, 新余额={}", user.getId(), depositAmount, newDeposit, inoutPrice, newLeftMoney);
                 } else {
                     log.error("扣除用户保证金失败: 用户ID={}", user.getId());
                     return Result.error(500, "更新用户账户失败");

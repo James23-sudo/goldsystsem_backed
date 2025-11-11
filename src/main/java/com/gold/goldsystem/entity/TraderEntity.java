@@ -117,4 +117,9 @@ public class TraderEntity {
      *  am\pm
      */
     private String traderCloseSelect;
+
+    /**
+     * 是否已开仓
+     */
+    private String isOpen;
 }
