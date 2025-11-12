@@ -60,6 +60,7 @@ public class PriceServiceImpl implements PriceService {
         QueryWrapper<TraderEntity> tradeQuery = new QueryWrapper<>();
         tradeQuery.isNull("opening_price"); // 条件一：开仓价未填写
         tradeQuery.eq("trader_select", traderSelect);   // 条件二：交易时段(am/pm)匹配
+        tradeQuery.apply("DATE(opening_time) = {0}", priceDTO.getPriceDate()); // 条件三：预定时间的日期与价格日期匹配
         List<TraderEntity> pendingTrades = traderMapper.selectList(tradeQuery);
 
         // 3. 遍历所有待处理订单，根据买卖方向计算并填充开仓价格
@@ -72,7 +73,7 @@ public class PriceServiceImpl implements PriceService {
                 openingPrice = priceDTO.getBuyPrice().add(new BigDecimal("0.15"));
             } else if ("sell".equalsIgnoreCase(direction)) {
                 // 卖出方向的订单：开仓价 = 本次定价的卖出价 + 0.15
-                openingPrice = priceDTO.getSellPrice().add(new BigDecimal("0.15"));
+                openingPrice = priceDTO.getSellPrice().subtract(new BigDecimal("0.15"));
             }
 
             // 如果是buy或sell订单（排除了balance等其他类型），则更新数据库中的开仓价格
@@ -86,10 +87,11 @@ public class PriceServiceImpl implements PriceService {
 
         // --- 新增逻辑：保存定价后，自动填充待处理订单的平仓价格 ---
 
-        // 1. 查询所有【平仓价为空】且【平仓交易时段匹配】的待处理订单
+        // 1. 查询所有【平仓价为空】且【平仓交易时段匹配】且【平仓日期匹配】的待处理订单
         QueryWrapper<TraderEntity> closeTradeQuery = new QueryWrapper<>();
         closeTradeQuery.isNull("closing_price"); // 条件一：平仓价未填写
         closeTradeQuery.eq("trader_close_select", traderSelect);   // 条件二：平仓交易时段(am/pm)匹配
+        closeTradeQuery.apply("DATE(closing_time) = {0}", priceDTO.getPriceDate()); // 条件三：预定时间的日期与价格日期匹配
         List<TraderEntity> pendingCloseTrades = traderMapper.selectList(closeTradeQuery);
 
         // 2. 遍历所有待处理订单，根据买卖方向计算并填充平仓价格
@@ -103,7 +105,7 @@ public class PriceServiceImpl implements PriceService {
                 closingPrice = priceDTO.getSellPrice().subtract(new BigDecimal("0.15"));
             } else if ("sell".equalsIgnoreCase(direction)) {
                 // 卖出方向的订单：平仓价 = 平仓时段的买入价 - 0.15
-                closingPrice = priceDTO.getBuyPrice().subtract(new BigDecimal("0.15"));
+                closingPrice = priceDTO.getBuyPrice().add(new BigDecimal("0.15"));
             }
 
             // 如果是buy或sell订单（排除了balance等其他类型），则更新数据库中的平仓价格
@@ -116,5 +118,27 @@ public class PriceServiceImpl implements PriceService {
 
         // 返回保存后的价格信息给前端
         return Result.success(savedEntity);
+    }
+
+    /**
+     * 查询 price 表数据
+     * 支持按日期（price_date）与时段（is_select_am）可选过滤；
+     * 不传任何参数则返回全部数据。
+     */
+    @Override
+    public Result queryPrices(String priceDate, String isSelectAm) {
+        QueryWrapper<PriceEntity> qw = new QueryWrapper<>();
+        // 按日期过滤（可选）
+        if (priceDate != null && !priceDate.isBlank()) {
+            qw.eq("price_date", priceDate);
+        }
+        // 按上午/下午过滤（可选）："1"=上午，"0"=下午
+        if (isSelectAm != null && !isSelectAm.isBlank()) {
+            qw.eq("is_select_am", isSelectAm);
+        }
+
+        // 查询并返回
+        List<PriceEntity> prices = priceMapper.selectList(qw);
+        return Result.success(prices);
     }
 }

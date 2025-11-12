@@ -21,6 +21,13 @@ public interface TraderService {
     Result updateTrader(TraderDTO traderDTO);
 
     /**
+     * 更新交易订单
+     * @param traderDTO 交易订单信息
+     * @return 更新结果
+     */
+    Result updateNewTrader(TraderDTO traderDTO);
+
+    /**
      * 删除交易订单（逻辑删除，将status设为0）
      * @param orderId 订单号
      * @return 删除结果
@@ -33,5 +40,5 @@ public interface TraderService {
      * @param userId 用户ID，可为空
      * @return 查询结果
      */
-    Result queryTraders(String isOk, String userId, Integer page, String traderSelect, Integer size);
+    Result queryTraders(String isOk, String userId, Integer page, String traderSelect, String isAgg, Integer size);
 }

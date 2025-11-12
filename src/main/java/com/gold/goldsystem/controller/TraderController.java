@@ -36,6 +36,15 @@ public class TraderController {
         log.info("收到更新交易订单请求: {}", traderDTO);
         return traderService.updateTrader(traderDTO);
     }
+    /**
+     * 更新交易订单（用于二次填数据：开仓价、平仓价、收盘价、平仓时间等可选字段）
+     * 根据订单号更新；服务层将计算隔夜费与盈亏，并在可选字段齐全时置 isOk=1
+     */
+    @PostMapping("/updateNewTrader")
+    public Result updateNewTrader(@RequestBody TraderDTO traderDTO) {
+        log.info("收到更新交易订单请求: {}", traderDTO);
+        return traderService.updateNewTrader(traderDTO);
+    }
 
     /**
      * 逻辑删除交易订单：将 status 设为 0（无效）
@@ -57,9 +66,10 @@ public class TraderController {
                        @RequestParam(value = "userId", required = false) String userId,
                        @RequestParam(value = "page", required = false) Integer page,
                        @RequestParam(value = "traderSelect", required = false) String traderSelect,
+                       @RequestParam(value = "isAgg", required = false) String isAgg,
                        @RequestParam(value = "size", required = false) Integer size) {
         // 中文注释：分页为可选参数；不传则返回全部列表
-        return traderService.queryTraders(isOk, userId, page, traderSelect, size);
+        return traderService.queryTraders(isOk, userId, page, traderSelect, isAgg, size);
     }
     
 }
