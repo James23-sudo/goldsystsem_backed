@@ -259,7 +259,7 @@ public class TraderServiceImpl implements TraderService {
      * 通用查询：status=1；isOk=0/1 由前端传参控制
      */
     @Override
-    public Result queryTraders(String isOk, String userId, Integer page, String traderSelect, Integer size) {
+    public Result queryTraders(String isOk, String userId, Integer page, String traderSelect, String isOpen, Integer size) {
         if (isOk == null || isOk.isBlank()) {
             return Result.error(400, "参数isOk为必填，取值0或1");
         }
@@ -271,6 +271,9 @@ public class TraderServiceImpl implements TraderService {
         qw.eq(TraderEntity::getIsOk, isOk);
         if(traderSelect != null) {
             qw.eq(TraderEntity::getTraderSelect, traderSelect);
+        }
+        if(isOpen != null) {
+            qw.eq(TraderEntity::getIsOpen, isOpen);
         }
         if (userId != null && !userId.isBlank()) {
             qw.eq(TraderEntity::getId, userId);
@@ -292,7 +295,8 @@ public class TraderServiceImpl implements TraderService {
                 TraderEntity::getTraderSelect,
                 TraderEntity::getTraderCloseSelect,
                 TraderEntity::getScheduledTime,
-                TraderEntity::getDeposit
+                TraderEntity::getDeposit,
+                TraderEntity::getIsOpen
         );
         qw.orderByDesc(TraderEntity::getOpeningTime);
         // 分页逻辑：如果提供了 size（>0），则启用分页；未提供 page 时默认 page=1
