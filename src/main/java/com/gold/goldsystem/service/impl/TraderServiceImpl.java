@@ -22,7 +22,7 @@ import java.util.Map;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
+ @RequiredArgsConstructor
 public class TraderServiceImpl implements TraderService {
     
     @Resource
@@ -434,6 +434,13 @@ public class TraderServiceImpl implements TraderService {
     }
 
     @Override
+    public Result updateNewTrader(TraderDTO traderDTO) {
+        deleteTrader(traderDTO.getOrderId());
+        Result s =addTrader(traderDTO);
+        return (s.getCode() == 200) ? Result.success(200,"成功更新"):Result.error(500,"删除失败");
+    }
+
+    @Override
     public Result deleteTrader(String orderId) {
         // 检查交易订单是否存在
         TraderEntity existingTrader = traderMapper.selectById(orderId);
@@ -441,9 +448,86 @@ public class TraderServiceImpl implements TraderService {
             return Result.error(404, "交易订单不存在");
         }
         
-        // 逻辑删除：将status设为0
-        existingTrader.setStatus("0");
-        int rows = traderMapper.updateById(existingTrader);
+        // 如果是balance类型订单或订单已完成（isOk=1），需要回滚资金
+        if ("1".equals(existingTrader.getIsOk()) && !"balance".equals(existingTrader.getDirection())) {
+            UserEntity user = userMapper.selectById(existingTrader.getId());
+            if (user == null) {
+                return Result.error(404, "用户不存在");
+            }
+            
+            // 1. 回滚盈亏：从余额和已平仓盈亏中减去
+            double inoutPrice = existingTrader.getInoutPrice() != null ? existingTrader.getInoutPrice().doubleValue() : 0;
+            double currentBalance = Double.parseDouble(user.getLeftMoney() != null ? user.getLeftMoney() : "0");
+            double currentWasIncome = Double.parseDouble(user.getWasIncome() != null ? user.getWasIncome() : "0");
+            double currentWasPay = Double.parseDouble(user.getWasPay() != null ? user.getWasPay() : "0");
+
+            double newBalance = currentBalance - inoutPrice;
+            double newWasIncome = currentWasIncome - inoutPrice;
+            
+            // 2. 回滚隔夜费：从余额中减去（隔夜费已经添加到余额）
+            double overnightFee = existingTrader.getOvernightPrice() != null ? existingTrader.getOvernightPrice().doubleValue() : 0;
+            newBalance = newBalance - overnightFee;
+            
+            // 3. 回滚保证金：恢复保证金到用户账户
+//            double depositAmount = existingTrader.getVolume() != null ? existingTrader.getVolume().doubleValue() * 100 : 0;
+//            double currentDeposit = Double.parseDouble(user.getDeposit() != null ? user.getDeposit() : "0");
+//            double newDeposit = currentDeposit + depositAmount;
+            
+            // 检查余额是否为负
+            if (newBalance < 0) {
+                log.error("删除订单后余额不足: 用户ID={}, 当前余额={}, 盈亏={}, 隔夜费={}", user.getId(), currentBalance, inoutPrice, overnightFee);
+                return Result.error(400, "删除订单后余额不足，无法删除");
+            }
+            
+            // 更新用户账户
+            user.setLeftMoney(String.valueOf(newBalance));
+            user.setWasIncome(String.valueOf(newWasIncome));
+//            user.setDeposit(String.valueOf(newDeposit));
+//            user.setWasPay(String.valueOf(newDeposit));
+//
+            // 重新计算可用预付款
+            double canPay = newBalance - currentWasPay;
+            user.setCanPay(String.valueOf(canPay));
+            
+            int userUpdateRows = userMapper.updateById(user);
+            if (userUpdateRows <= 0) {
+                log.error("回滚用户账户失败: 用户ID={}", user.getId());
+                return Result.error(500, "回滚用户账户失败");
+            }
+        } else if ("balance".equals(existingTrader.getDirection())) {
+            // balance类型订单：回滚出入金
+            UserEntity user = userMapper.selectById(existingTrader.getId());
+            if (user == null) {
+                return Result.error(404, "用户不存在");
+            }
+            
+            double entryExitAmount = existingTrader.getEntryExit() != null ? existingTrader.getEntryExit().doubleValue() : 0;
+            double currentBalance = Double.parseDouble(user.getLeftMoney() != null ? user.getLeftMoney() : "0");
+            double newBalance = currentBalance - entryExitAmount;
+            
+            if (newBalance < 0) {
+                log.error("删除出入金订单后余额不足: 用户ID={}, 当前余额={}, 出入金金额={}", user.getId(), currentBalance, entryExitAmount);
+                return Result.error(400, "删除订单后余额不足，无法删除");
+            }
+            
+            user.setLeftMoney(String.valueOf(newBalance));
+            
+            // 重新计算可用预付款
+            double wasPay = Double.parseDouble(user.getWasPay() != null ? user.getWasPay() : "0");
+            double canPay = newBalance - wasPay;
+            user.setCanPay(String.valueOf(canPay));
+            
+            int userUpdateRows = userMapper.updateById(user);
+            if (userUpdateRows <= 0) {
+                log.error("回滚用户余额失败: 用户ID={}", user.getId());
+                return Result.error(500, "回滚用户余额失败");
+            }
+            
+            log.info("已回滚出入金: 用户ID={}, 金额={}, 新余额={}", user.getId(), entryExitAmount, newBalance);
+        }
+        
+
+        int rows = traderMapper.deleteById(existingTrader);
         
         if (rows > 0) {
             log.info("交易订单删除成功: 订单号={}", orderId);

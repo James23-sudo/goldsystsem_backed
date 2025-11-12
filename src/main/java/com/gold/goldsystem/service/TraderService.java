@@ -21,6 +21,13 @@ public interface TraderService {
     Result updateTrader(TraderDTO traderDTO);
 
     /**
+     * 更新交易订单
+     * @param traderDTO 交易订单信息
+     * @return 更新结果
+     */
+    Result updateNewTrader(TraderDTO traderDTO);
+
+    /**
      * 删除交易订单（逻辑删除，将status设为0）
      * @param orderId 订单号
      * @return 删除结果
