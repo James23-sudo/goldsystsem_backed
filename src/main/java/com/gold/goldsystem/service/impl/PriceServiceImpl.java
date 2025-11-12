@@ -119,4 +119,26 @@ public class PriceServiceImpl implements PriceService {
         // 返回保存后的价格信息给前端
         return Result.success(savedEntity);
     }
+
+    /**
+     * 查询 price 表数据
+     * 支持按日期（price_date）与时段（is_select_am）可选过滤；
+     * 不传任何参数则返回全部数据。
+     */
+    @Override
+    public Result queryPrices(String priceDate, String isSelectAm) {
+        QueryWrapper<PriceEntity> qw = new QueryWrapper<>();
+        // 按日期过滤（可选）
+        if (priceDate != null && !priceDate.isBlank()) {
+            qw.eq("price_date", priceDate);
+        }
+        // 按上午/下午过滤（可选）："1"=上午，"0"=下午
+        if (isSelectAm != null && !isSelectAm.isBlank()) {
+            qw.eq("is_select_am", isSelectAm);
+        }
+
+        // 查询并返回
+        List<PriceEntity> prices = priceMapper.selectList(qw);
+        return Result.success(prices);
+    }
 }
