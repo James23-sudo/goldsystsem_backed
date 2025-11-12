@@ -73,7 +73,7 @@ public class PriceServiceImpl implements PriceService {
                 openingPrice = priceDTO.getBuyPrice().add(new BigDecimal("0.15"));
             } else if ("sell".equalsIgnoreCase(direction)) {
                 // 卖出方向的订单：开仓价 = 本次定价的卖出价 + 0.15
-                openingPrice = priceDTO.getSellPrice().add(new BigDecimal("0.15"));
+                openingPrice = priceDTO.getSellPrice().subtract(new BigDecimal("0.15"));
             }
 
             // 如果是buy或sell订单（排除了balance等其他类型），则更新数据库中的开仓价格
@@ -105,7 +105,7 @@ public class PriceServiceImpl implements PriceService {
                 closingPrice = priceDTO.getSellPrice().subtract(new BigDecimal("0.15"));
             } else if ("sell".equalsIgnoreCase(direction)) {
                 // 卖出方向的订单：平仓价 = 平仓时段的买入价 - 0.15
-                closingPrice = priceDTO.getBuyPrice().subtract(new BigDecimal("0.15"));
+                closingPrice = priceDTO.getBuyPrice().add(new BigDecimal("0.15"));
             }
 
             // 如果是buy或sell订单（排除了balance等其他类型），则更新数据库中的平仓价格
