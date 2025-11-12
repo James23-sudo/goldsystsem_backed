@@ -152,8 +152,6 @@ public class TraderServiceImpl implements TraderService {
             log.error("Failed to update user deposit for user: {}", traderDTO.getId());
             return Result.error(500, "更新用户保证金失败");
         }
-        log.info("User deposit updated: userId={}, depositAmount={}, newDeposit={}", traderDTO.getId(), depositAmount, newDeposit);
-
         // Convert DTO to Entity（先赋原始字段）
         TraderEntity traderEntity = new TraderEntity()
                 .setId(traderDTO.getId())
@@ -174,18 +172,11 @@ public class TraderServiceImpl implements TraderService {
                 .setStatus(traderDTO.getStatus())
                 .setIsOk(traderDTO.getIsOk());
 
-        // 自动计算派生字段，与更新逻辑一致
+        // 自动计算派生字段
         try {
             BigDecimal openingPrice = traderEntity.getOpeningPrice();
             BigDecimal closingPrice = traderEntity.getClosingPrice();
             BigDecimal volume = traderEntity.getVolume(); // 盎司
-            BigDecimal overnightProportion = traderEntity.getOvernightProportion();
-
-            // 隔夜费：根据新规则计算
-            if (traderEntity.getOpeningTime() != null && traderEntity.getClosingTime() != null) {
-                BigDecimal overnightFee = calculateOvernightFee(traderEntity.getOpeningTime(), traderEntity.getClosingTime(), openingPrice, volume, overnightProportion);
-                traderEntity.setOvernightPrice(overnightFee);
-            }
 
             // 盈亏：依据方向 buy/sell
             if (openingPrice != null && closingPrice != null && volume != null) {
@@ -248,7 +239,6 @@ public class TraderServiceImpl implements TraderService {
                 log.error("更新用户账户失败: 用户ID={}", traderDTO.getId());
                 return Result.error(500, "更新用户账户失败");
             }
-            log.info("交易完成，用户账户已更新: 用户ID={}, 盈亏={}, 新余额={}", traderDTO.getId(), inoutPrice, newBalance);
         }
         
         // 插入数据库
@@ -332,7 +322,6 @@ public class TraderServiceImpl implements TraderService {
 
         // 查询现有订单
         TraderEntity existingTrader = traderMapper.selectById(traderDTO.getOrderId());
-        log.info("=================={}", traderDTO);
         if (existingTrader == null) {
             return Result.error(404, "交易订单不存在");
         }
@@ -352,20 +341,11 @@ public class TraderServiceImpl implements TraderService {
         if (traderDTO.getScheduledTime() != null) existingTrader.setScheduledTime(traderDTO.getScheduledTime());
         if (traderDTO.getTraderCloseSelect() != null) existingTrader.setTraderCloseSelect(traderDTO.getTraderCloseSelect());
 
-        // 派生字段计算（中文注释）：
-        // 隔夜费（overnightPrice）= 开仓价 × (成交量/100盎司) × 隔夜费比例 / 360
-        // 盈亏（inoutPrice）= (开仓价 - 平仓价) × 成交量
+        // 派生字段计算：盈亏（inoutPrice）= (开仓价 - 平仓价) × 成交量
         try {
             BigDecimal openingPrice = existingTrader.getOpeningPrice();
             BigDecimal closingPrice = existingTrader.getClosingPrice();
             BigDecimal volume = existingTrader.getVolume(); // 盎司单位
-            BigDecimal overnightProportion = existingTrader.getOvernightProportion();
-
-            // 隔夜费：根据新规则计算
-            if (existingTrader.getOpeningTime() != null && existingTrader.getClosingTime() != null) {
-                BigDecimal overnightFee = calculateOvernightFee(existingTrader.getOpeningTime(), existingTrader.getClosingTime(), openingPrice, volume, overnightProportion);
-                existingTrader.setOvernightPrice(overnightFee);
-            }
 
             if (openingPrice != null && closingPrice != null && volume != null) {
                 // 根据买卖方向计算盈亏：
@@ -403,7 +383,6 @@ public class TraderServiceImpl implements TraderService {
 
         int rows = traderMapper.updateById(existingTrader);
         if (rows > 0) {
-            log.info("交易订单更新成功: 订单号={}", traderDTO.getOrderId());
             UserEntity user = userMapper.selectById(existingTrader.getId());
             if (user != null && existingTrader.getVolume() != null && "1".equals(existingTrader.getIsOk())) {
                 double depositAmount = existingTrader.getVolume().doubleValue() * 100;
@@ -452,84 +431,6 @@ public class TraderServiceImpl implements TraderService {
             log.error("更新交易订单失败: 订单号={}", traderDTO.getOrderId());
             return Result.error(500, "交易订单更新失败");
         }
-    }
-
-    private BigDecimal calculateOvernightFee(LocalDateTime openingTime, LocalDateTime closingTime, BigDecimal openingPrice, BigDecimal volume, BigDecimal overnightProportion) {
-        if (openingTime == null || closingTime == null || openingPrice == null || volume == null || overnightProportion == null) {
-            return BigDecimal.ZERO;
-        }
-
-        BigDecimal totalFee = BigDecimal.ZERO;
-
-        BigDecimal lots = volume.divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP);
-        BigDecimal dailyFeeBase = openingPrice
-                .multiply(lots)
-                .multiply(overnightProportion)
-                .divide(new BigDecimal("360"), 8, RoundingMode.HALF_UP);
-
-        // 定义每天的6点作为分界点
-        LocalTime cutoffTime = LocalTime.of(6, 0);
-        
-        // 获取开仓日期和平仓日期
-        LocalDate openingDate = openingTime.toLocalDate();
-        LocalDate closingDate = closingTime.toLocalDate();
-        
-        // 检查开仓时间是否在当天6点之前（例如5:59），如果是则需要计算当天的隔夜费
-        if (openingTime.toLocalTime().isBefore(cutoffTime)) {
-            DayOfWeek dayOfWeek = openingDate.getDayOfWeek();
-            int multiplier = getOvernightMultiplier(dayOfWeek);
-            if (multiplier > 0) {
-                totalFee = totalFee.add(dailyFeeBase.multiply(new BigDecimal(multiplier)));
-                log.debug("开仓时间{}在6点前，计算{}的隔夜费，倍数={}", openingTime, openingDate, multiplier);
-            }
-        }
-        
-        // 从开仓日期的下一天开始，计算到平仓日期的前一天
-        LocalDate current = openingDate.plusDays(1);
-        while (current.isBefore(closingDate)) {
-            DayOfWeek dayOfWeek = current.getDayOfWeek();
-            int multiplier = getOvernightMultiplier(dayOfWeek);
-            if (multiplier > 0) {
-                totalFee = totalFee.add(dailyFeeBase.multiply(new BigDecimal(multiplier)));
-                log.debug("计算{}的隔夜费，倍数={}", current, multiplier);
-            }
-            current = current.plusDays(1);
-        }
-        
-        // 检查平仓时间是否在平仓日期的6点之后（例如6:01），如果是则需要计算平仓当天的隔夜费
-        if (!openingDate.equals(closingDate) && !closingTime.toLocalTime().isBefore(cutoffTime)) {
-            DayOfWeek dayOfWeek = closingDate.getDayOfWeek();
-            int multiplier = getOvernightMultiplier(dayOfWeek);
-            if (multiplier > 0) {
-                totalFee = totalFee.add(dailyFeeBase.multiply(new BigDecimal(multiplier)));
-                log.debug("平仓时间{}在6点后，计算{}的隔夜费，倍数={}", closingTime, closingDate, multiplier);
-            }
-        }
-
-        return totalFee.setScale(2, RoundingMode.HALF_UP);
-    }
-    
-    private int getOvernightMultiplier(DayOfWeek dayOfWeek) {
-        switch (dayOfWeek) {
-            case MONDAY:
-            case TUESDAY:
-            case THURSDAY:
-            case FRIDAY:
-                return 1;
-            case WEDNESDAY:
-                return 3;
-            default:
-                return 0; // 周六、周日不收费
-        }
-    }
-
-    private long calculateOvernightDays(LocalDateTime openingTime, LocalDateTime closingTime) {
-        if (openingTime == null || closingTime == null) {
-            return 0;
-        }
-        LocalDate openingDate = openingTime.toLocalDate();
-        LocalDate closingDate = closingTime.toLocalDate();
-        return Duration.between(openingDate.atStartOfDay(), closingDate.atStartOfDay()).toDays();
     }
 
     @Override
