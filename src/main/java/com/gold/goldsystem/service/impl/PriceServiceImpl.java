@@ -60,6 +60,7 @@ public class PriceServiceImpl implements PriceService {
         QueryWrapper<TraderEntity> tradeQuery = new QueryWrapper<>();
         tradeQuery.isNull("opening_price"); // 条件一：开仓价未填写
         tradeQuery.eq("trader_select", traderSelect);   // 条件二：交易时段(am/pm)匹配
+        tradeQuery.apply("DATE(opening_time) = {0}", priceDTO.getPriceDate()); // 条件三：预定时间的日期与价格日期匹配
         List<TraderEntity> pendingTrades = traderMapper.selectList(tradeQuery);
 
         // 3. 遍历所有待处理订单，根据买卖方向计算并填充开仓价格
@@ -86,10 +87,11 @@ public class PriceServiceImpl implements PriceService {
 
         // --- 新增逻辑：保存定价后，自动填充待处理订单的平仓价格 ---
 
-        // 1. 查询所有【平仓价为空】且【平仓交易时段匹配】的待处理订单
+        // 1. 查询所有【平仓价为空】且【平仓交易时段匹配】且【平仓日期匹配】的待处理订单
         QueryWrapper<TraderEntity> closeTradeQuery = new QueryWrapper<>();
         closeTradeQuery.isNull("closing_price"); // 条件一：平仓价未填写
         closeTradeQuery.eq("trader_close_select", traderSelect);   // 条件二：平仓交易时段(am/pm)匹配
+        closeTradeQuery.apply("DATE(closing_time) = {0}", priceDTO.getPriceDate()); // 条件三：预定时间的日期与价格日期匹配
         List<TraderEntity> pendingCloseTrades = traderMapper.selectList(closeTradeQuery);
 
         // 2. 遍历所有待处理订单，根据买卖方向计算并填充平仓价格
