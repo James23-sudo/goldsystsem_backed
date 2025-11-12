@@ -259,7 +259,7 @@ public class TraderServiceImpl implements TraderService {
      * 通用查询：status=1；isOk=0/1 由前端传参控制
      */
     @Override
-    public Result queryTraders(String isOk, String userId, Integer page, String traderSelect, String isOpen, Integer size) {
+    public Result queryTraders(String isOk, String userId, Integer page, String traderSelect, String isAgg, Integer size) {
         if (isOk == null || isOk.isBlank()) {
             return Result.error(400, "参数isOk为必填，取值0或1");
         }
@@ -272,8 +272,16 @@ public class TraderServiceImpl implements TraderService {
         if(traderSelect != null) {
             qw.eq(TraderEntity::getTraderSelect, traderSelect);
         }
-        if(isOpen != null) {
-            qw.eq(TraderEntity::getIsOpen, isOpen);
+        if(isAgg != null && "1".equals(isAgg)) {
+            qw.eq(TraderEntity::getIsOpen, "1");
+            qw.isNotNull(TraderEntity::getOpeningPrice);
+            qw.isNotNull(TraderEntity::getClosingPrice);
+        }else if("0".equals(isAgg)) {
+            qw.and(wrapper -> wrapper
+                    .isNull(TraderEntity::getOpeningPrice)
+                    .or()
+                    .isNull(TraderEntity::getClosingPrice)
+            );;
         }
         if (userId != null && !userId.isBlank()) {
             qw.eq(TraderEntity::getId, userId);
