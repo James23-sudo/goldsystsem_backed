@@ -125,8 +125,8 @@ public class TraderServiceImpl implements TraderService {
             }
         }
 
-        // 计算并更新用户保证金：成交量 × 100 HKD
-        double depositAmount = traderDTO.getVolume().doubleValue() * 100;
+        // 计算并更新用户保证金：成交量 × 40 USD
+        double depositAmount = traderDTO.getVolume().doubleValue() * 40;
         
         // 检查用户可用预付款是否足够扣除保证金
         double currentBalance = Double.parseDouble(user.getLeftMoney() != null ? user.getLeftMoney() : "0");
@@ -338,6 +338,63 @@ public class TraderServiceImpl implements TraderService {
             return Result.error(404, "交易订单不存在");
         }
 
+        // 处理未完成订单的成交量变更（需要调整保证金）
+        if ("0".equals(existingTrader.getIsOk()) && traderDTO.getVolume() != null && !"balance".equals(existingTrader.getDirection())) {
+            BigDecimal oldVolume = existingTrader.getVolume();
+            BigDecimal newVolume = traderDTO.getVolume();
+            
+            // 检查成交量是否发生变化
+            if (oldVolume != null && oldVolume.compareTo(newVolume) != 0) {
+                UserEntity user = userMapper.selectById(existingTrader.getId());
+                if (user == null) {
+                    return Result.error(404, "用户不存在");
+                }
+                
+                // 计算保证金差额
+                double oldDepositAmount = oldVolume.doubleValue() * 40;
+                double newDepositAmount = newVolume.doubleValue() * 40;
+                double depositDiff = newDepositAmount - oldDepositAmount;
+                
+                double currentDeposit = Double.parseDouble(user.getDeposit() != null ? user.getDeposit() : "0");
+                double currentBalance = Double.parseDouble(user.getLeftMoney() != null ? user.getLeftMoney() : "0");
+                double currentWasPay = Double.parseDouble(user.getWasPay() != null ? user.getWasPay() : "0");
+                
+                // 如果成交量增加，需要扣除额外的保证金
+                if (depositDiff > 0) {
+                    double currentCanPay = currentBalance - currentWasPay;
+                    if (currentCanPay < depositDiff) {
+                        log.error("可用预付款不足: 用户ID={}, 可用预付款={}, 需要额外保证金={}", user.getId(), currentCanPay, depositDiff);
+                        return Result.error(400, "可用预付款不足，不足以修改订单成交量");
+                    }
+                }
+                
+                // 更新保证金和已用预付款
+                double newDeposit = currentDeposit + depositDiff;
+                if (newDeposit < 0) {
+                    newDeposit = 0;
+                }
+                
+                user.setDeposit(String.valueOf(newDeposit));
+                user.setWasPay(String.valueOf(newDeposit));
+                
+                // 重新计算可用预付款
+                double newCanPay = currentBalance - newDeposit;
+                user.setCanPay(String.valueOf(newCanPay));
+                
+                int userUpdateRows = userMapper.updateById(user);
+                if (userUpdateRows <= 0) {
+                    log.error("更新用户保证金失败: 用户ID={}", user.getId());
+                    return Result.error(500, "更新用户保证金失败");
+                }
+                
+                log.info("订单成交量变更，保证金已调整: 用户ID={}, 旧成交量={}, 新成交量={}, 保证金变化={}, 新保证金={}", 
+                    user.getId(), oldVolume, newVolume, depositDiff, newDeposit);
+                
+                // 更新订单的保证金字段
+                existingTrader.setDeposit(new BigDecimal(newDepositAmount));
+            }
+        }
+
         // 选择性更新：仅对非空字段进行赋值，避免把未传字段覆盖为null
         if (traderDTO.getId() != null) existingTrader.setId(traderDTO.getId());
         if (traderDTO.getOpeningTime() != null) existingTrader.setOpeningTime(traderDTO.getOpeningTime());
@@ -397,7 +454,7 @@ public class TraderServiceImpl implements TraderService {
         if (rows > 0) {
             UserEntity user = userMapper.selectById(existingTrader.getId());
             if (user != null && existingTrader.getVolume() != null && "1".equals(existingTrader.getIsOk())) {
-                double depositAmount = existingTrader.getVolume().doubleValue() * 100;
+                double depositAmount = existingTrader.getVolume().doubleValue() * 40;
                 double currentDeposit = Double.parseDouble(user.getDeposit() != null ? user.getDeposit() : "0");
                 double newDeposit = currentDeposit - depositAmount;
                 // 已平仓盈亏
