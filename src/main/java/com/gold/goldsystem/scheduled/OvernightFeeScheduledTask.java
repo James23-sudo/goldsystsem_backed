@@ -43,8 +43,8 @@ public class OvernightFeeScheduledTask {
 
         try {
             // 获取昨天的日期
-            LocalDate yesterday = LocalDate.now().minusDays(1);
-            DayOfWeek dayOfWeek = yesterday.getDayOfWeek();
+            LocalDate today = LocalDate.now();
+            DayOfWeek dayOfWeek = today.getDayOfWeek();
 
             // 获取隔夜费倍数
             int multiplier = getOvernightMultiplier(dayOfWeek);
@@ -77,9 +77,9 @@ public class OvernightFeeScheduledTask {
                 BigDecimal volume = trade.getVolume();
                 BigDecimal overnightProportion = trade.getOvernightProportion();
 
-                BigDecimal lots = volume.divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP);
+                //BigDecimal lots = volume.divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP);
                 BigDecimal dailyFeeBase = openingPrice
-                        .multiply(lots)
+                        .multiply(volume)
                         .multiply(overnightProportion)
                         .divide(new BigDecimal("360"), 8, RoundingMode.HALF_UP);
 
@@ -87,12 +87,20 @@ public class OvernightFeeScheduledTask {
                 BigDecimal dailyFee = dailyFeeBase.multiply(new BigDecimal(multiplier))
                         .setScale(2, RoundingMode.HALF_UP);
 
-                // 累加到该用户的总隔夜费
+                // 累加到该用户的总隔夜费（用于扣除余额）
                 String userId = trade.getId();
-                BigDecimal todayOvernightFee = userOvernightFees.merge(userId, dailyFee, BigDecimal::add);
-                trade.setOvernightPrice(trade.getOvernightPrice().add(todayOvernightFee));
+                userOvernightFees.merge(userId, dailyFee, BigDecimal::add);
+                
+                // 更新订单的隔夜费累计金额（仅加上当前订单的单日隔夜费）
+                BigDecimal currentOvernightPrice = trade.getOvernightPrice();
+                if (currentOvernightPrice == null) {
+                    currentOvernightPrice = BigDecimal.ZERO;
+                }
+                trade.setOvernightPrice(currentOvernightPrice.add(dailyFee));
                 traderMapper.updateById(trade);
-                log.debug("订单{}隔夜费: userId={}, fee={}", trade.getOrderId(), userId, dailyFee);
+                
+                log.debug("订单{}隔夜费: userId={}, 订单单日费用={}, 订单累计隔夜费={}", 
+                    trade.getOrderId(), userId, dailyFee, trade.getOvernightPrice());
             }
 
             // 批量更新用户余额
